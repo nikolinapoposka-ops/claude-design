@@ -89,10 +89,9 @@ const dropdownItems = [
 
 interface SecondaryNavProps {
   onNavigateToTemplate: () => void;
-  onReuseTemplate: () => void;
 }
 
-const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate }) => {
+const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -272,7 +271,6 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
       <CreateAuditModal
         onClose={() => setAuditModalOpen(false)}
         onNavigateToTemplate={onNavigateToTemplate}
-        onReuseTemplate={() => { setAuditModalOpen(false); onReuseTemplate(); }}
       />
     )}
     </>

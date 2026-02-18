@@ -2504,3 +2504,120 @@ body {
     opacity: 0.45;
     cursor: not-allowed;
 }
+
+/* ── Scoring ───────────────────────────────────────────────── */
+
+.scoring-disabled-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--qui-color-surface-contrast-high);
+    color: var(--qui-color-surface-on-surface);
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.scoring-expanded-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0 8px;
+}
+
+.scoring-include-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.scoring-include-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.scoring-include-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--qui-color-surface-on-surface);
+}
+
+.scoring-include-desc {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface-alt);
+}
+
+.scoring-toggle {
+    flex-shrink: 0;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    border: none;
+    background: var(--qui-color-surface-contrast-high);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.scoring-toggle--on {
+    background: var(--qui-color-primary-main);
+    justify-content: center;
+}
+
+.scoring-values-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scoring-values-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--qui-color-surface-on-surface);
+}
+
+.scoring-values-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    border: 1px solid var(--qui-color-surface-contrast-high);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.scoring-value-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scoring-value-option-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface-alt);
+}
+
+.scoring-value-input {
+    border: 1px solid var(--qui-color-surface-contrast-high);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    background: #fff;
+}
+
+.scoring-value-input:focus {
+    border-color: var(--qui-color-primary-main);
+}

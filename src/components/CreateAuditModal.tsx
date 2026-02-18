@@ -3,10 +3,9 @@ import React from 'react';
 interface CreateAuditModalProps {
   onClose: () => void;
   onNavigateToTemplate: () => void;
-  onReuseTemplate: () => void;
 }
 
-const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigateToTemplate, onReuseTemplate }) => {
+const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigateToTemplate }) => {
   return (
     <div
       className="modal-overlay"
@@ -29,7 +28,7 @@ const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigate
         <p className="modal-subtitle">Choose how you want to get started</p>
 
         {/* Option 1 */}
-        <button className="modal-option" data-test-id="modal-option-reuse" onClick={() => { onClose(); onReuseTemplate(); }}>
+        <button className="modal-option" data-test-id="modal-option-reuse">
           <div className="modal-option-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="#1e282f" strokeWidth="2" width="26" height="26">
               <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>

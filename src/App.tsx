@@ -8,25 +8,11 @@ import CreateTemplateContent from './components/CreateTemplateContent';
 import TemplateDetailContent from './components/TemplateDetailContent';
 import EditTemplateContent from './components/EditTemplateContent';
 import DiscardChangesModal from './components/DiscardChangesModal';
-import ChooseTemplateView from './components/ChooseTemplateView';
-import TemplateOverviewContent from './components/TemplateOverviewContent';
-import ReviewAndSendContent from './components/ReviewAndSendContent';
-import type { SendAuditData } from './components/ReviewAndSendContent';
 import { ToastProvider, useToast } from './components/Toast';
 import type { Template } from './components/TemplateCard';
 import type { CollectionFilter } from './components/AuditContent';
 
-type View = 'list' | 'create-template' | 'template-detail' | 'edit-template'
-           | 'choose-template' | 'template-overview' | 'review-and-send';
-
-export interface AuditInstance {
-  id: string;
-  title: string;
-  category: string;
-  sendOutDate: string;
-  dueDate: string;
-  status: 'draft' | 'sent';
-}
+type View = 'list' | 'create-template' | 'template-detail' | 'edit-template';
 
 const DEFAULT_DRAFT_TITLE = 'New brush and sponge drop';
 
@@ -58,10 +44,6 @@ function AppContent() {
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>('library');
-  const [selectedAuditTemplate, setSelectedAuditTemplate] = useState<Template | null>(null);
-  const [auditInstances, setAuditInstances] = useState<AuditInstance[]>([]);
-
-  // --- Template library handlers ---
 
   const handleNavigateToTemplate = () => {
     setDraftTitle(DEFAULT_DRAFT_TITLE);
@@ -114,6 +96,7 @@ function AppContent() {
 
   const handleBackFromTemplate = () => {
     if (editingDraftId) {
+      // Existing draft — just update its title if changed, don't create a duplicate
       setReusableTemplates((prev) =>
         prev.map((t) => (t.id === editingDraftId ? { ...t, title: draftTitle.trim() || t.title } : t))
       );
@@ -174,6 +157,7 @@ function AppContent() {
 
   const handleSaveTemplate = (data: { title: string; category: string; isPriority: boolean; description: string; sections: Array<{ title: string; questions: string[] }> }) => {
     if (editingDraftId) {
+      // Convert existing draft → library template
       setReusableTemplates((prev) =>
         prev.map((t) =>
           t.id === editingDraftId
@@ -188,6 +172,7 @@ function AppContent() {
       return;
     }
 
+    // New template — optimistic UI flow
     const tempId = `temp-${++tempIdCounter}`;
     const optimisticTemplate: Template = {
       id: tempId,
@@ -208,6 +193,7 @@ function AppContent() {
     setView('list');
     setActiveTab(1);
 
+    // Simulate API call
     setTimeout(() => {
       const realId = `template-${Date.now()}`;
       setReusableTemplates((prev) =>
@@ -217,73 +203,12 @@ function AppContent() {
     }, 600);
   };
 
-  // --- Reuse audit flow handlers ---
-
-  const handleReuseTemplate = () => {
-    setView('choose-template');
-  };
-
-  const handleSelectAuditTemplate = (template: Template) => {
-    setSelectedAuditTemplate(template);
-    setView('template-overview');
-  };
-
-  const handleUseTemplate = () => {
-    setView('review-and-send');
-  };
-
-  const handleBackFromChooseTemplate = () => {
-    setView('list');
-  };
-
-  const handleBackFromTemplateOverview = () => {
-    setView('choose-template');
-  };
-
-  const handleBackFromReviewAndSend = () => {
-    if (selectedAuditTemplate) {
-      const draft: AuditInstance = {
-        id: `audit-draft-${Date.now()}`,
-        title: selectedAuditTemplate.title,
-        category: selectedAuditTemplate.category,
-        sendOutDate: '',
-        dueDate: '',
-        status: 'draft',
-      };
-      setAuditInstances((prev) => [draft, ...prev]);
-    }
-    setSelectedAuditTemplate(null);
-    setActiveTab(0);
-    setView('list');
-  };
-
-  const handleSendAudit = (data: SendAuditData) => {
-    if (selectedAuditTemplate) {
-      const instance: AuditInstance = {
-        id: `audit-${Date.now()}`,
-        title: selectedAuditTemplate.title,
-        category: selectedAuditTemplate.category,
-        sendOutDate: data.sendOutDate || formatDate(new Date()),
-        dueDate: data.dueDate || '',
-        status: 'sent',
-      };
-      setAuditInstances((prev) => [instance, ...prev]);
-    }
-    setSelectedAuditTemplate(null);
-    setActiveTab(0);
-    setView('list');
-    createToast({ message: 'Audit created', type: 'positive', duration: 3000 });
-  };
-
   return (
     <>
       <Navbar />
       {view === 'list' ? (
         <>
-          <SecondaryNav
-            onNavigateToTemplate={handleNavigateToTemplate}
-            onReuseTemplate={handleReuseTemplate}
-          />
+          <SecondaryNav onNavigateToTemplate={handleNavigateToTemplate} />
           <MainContent
             tab={activeTab}
             onTabChange={(tab) => setActiveTab(tab)}
@@ -293,7 +218,6 @@ function AppContent() {
             onViewTemplate={handleViewTemplate}
             collectionFilter={collectionFilter}
             onCollectionFilterChange={setCollectionFilter}
-            auditInstances={auditInstances}
           />
         </>
       ) : view === 'create-template' ? (
@@ -317,7 +241,7 @@ function AppContent() {
             />
           )}
         </>
-      ) : view === 'edit-template' ? (
+      ) : (
         <>
           <CreateTemplateNav onBack={handleRequestLeaveEdit} />
           {selectedTemplate && (
@@ -326,34 +250,6 @@ function AppContent() {
               onCancel={handleRequestLeaveEdit}
               onSave={handleSaveEditedTemplate}
               onDirtyChange={setEditIsDirty}
-            />
-          )}
-        </>
-      ) : view === 'choose-template' ? (
-        <>
-          <CreateTemplateNav onBack={handleBackFromChooseTemplate} />
-          <ChooseTemplateView
-            templates={reusableTemplates.filter((t) => !t.status || t.status === 'library')}
-            onSelect={handleSelectAuditTemplate}
-          />
-        </>
-      ) : view === 'template-overview' ? (
-        <>
-          <CreateTemplateNav onBack={handleBackFromTemplateOverview} />
-          {selectedAuditTemplate && (
-            <TemplateOverviewContent
-              template={selectedAuditTemplate}
-              onUseTemplate={handleUseTemplate}
-            />
-          )}
-        </>
-      ) : (
-        <>
-          <CreateTemplateNav onBack={handleBackFromReviewAndSend} />
-          {selectedAuditTemplate && (
-            <ReviewAndSendContent
-              template={selectedAuditTemplate}
-              onSend={handleSendAudit}
             />
           )}
         </>
