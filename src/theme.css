@@ -1,0 +1,84 @@
+/* QUI Design System — CSS Custom Properties
+ * Sourced from design-tokens.json (semantic light theme)
+ * When @quinyx/ui becomes installable, wrap the app with <CSSThemeProvider>
+ * and these vars will be provided automatically.
+ */
+:root {
+  /* ── Primary (petrol) ── */
+  --qui-color-primary-main: #004851;
+  --qui-color-primary-on-main: #f8faf9;
+  --qui-color-primary-alt: #baddda;
+  --qui-color-primary-on-alt: #001f27;
+  --qui-color-primary-hover: #06666e;    /* petrol.40 */
+  --qui-color-primary-active: #00363f;   /* petrol.20 */
+  --qui-color-primary-surface: #e2edeb;  /* petrol.90 */
+
+  /* ── Secondary (pink) ── */
+  --qui-color-secondary-main: #b23d59;
+  --qui-color-secondary-on-main: #ffffff;
+  --qui-color-secondary-alt: #f2d4d7;
+  --qui-color-secondary-on-alt: #370c18;
+
+  /* ── Surface (neutral) ── */
+  --qui-color-surface-main: #ffffff;
+  --qui-color-surface-on-surface: #1e282f;
+  --qui-color-surface-on-surface-alt: #465d6d;
+  --qui-color-surface-outline: #c1ced7;
+  --qui-color-surface-contrast-most: #e0e6eb;
+  --qui-color-surface-contrast-high: #e6ebef;
+  --qui-color-surface-contrast-mid: #ecf0f3;
+  --qui-color-surface-contrast-low: #f3f5f7;
+  --qui-color-surface-contrast-least: #f9fafb;
+  --qui-color-surface-hover: #d8e2e8;   /* segmented btn hover */
+
+  /* ── Danger (red) ── */
+  --qui-color-danger-main: #e62600;
+  --qui-color-danger-on-main: #ffffff;
+  --qui-color-danger-alt: #fadbdb;
+  --qui-color-danger-mid: #c0392b;       /* red.30 — priority badge */
+  --qui-color-danger-dark: #b71c1c;      /* red.30 — toast bg */
+
+  /* ── Warning (yellow) ── */
+  --qui-color-warning-main: #f5cd3d;
+  --qui-color-warning-alt: #f5eed6;
+  --qui-color-warning-on-alt: #665000;
+
+  /* ── Warning amber (edit warning banner — outside standard QUI palette) ── */
+  --qui-color-warning-amber: #f59e0b;
+  --qui-color-warning-amber-bg: #fffbeb;
+  --qui-color-warning-amber-text: #92400e;
+
+  /* ── Success (green) ── */
+  --qui-color-success-main: #3a9263;
+  --qui-color-success-on-main: #ffffff;
+
+  /* ── Info (blue) ── */
+  --qui-color-info-main: #005cba;
+  --qui-color-info-alt: #dae2fc;
+
+  /* ── Neutral ── */
+  --qui-color-neutral-main: #5a778c;
+  --qui-color-neutral-mid: #7390a5;      /* neutral.50 */
+  --qui-color-neutral-alt: #e0e6eb;
+
+  /* ── Spacing ── */
+  --qui-spacing-xs: 4px;
+  --qui-spacing-s: 8px;
+  --qui-spacing-m: 16px;
+  --qui-spacing-l: 24px;
+  --qui-spacing-xl: 32px;
+  --qui-spacing-xxl: 40px;
+  --qui-spacing-xxxl: 48px;
+  --qui-spacing-xxxxl: 56px;
+
+  /* ── Corner radius ── */
+  --qui-radius-s: 4px;
+  --qui-radius-m: 8px;
+  --qui-radius-l: 16px;
+  --qui-radius-xl: 24px;
+  --qui-radius-infinite: 9999px;
+
+  /* ── Shadows ── */
+  --qui-shadow-sharp: 0 1px 5px rgba(30, 40, 47, 0.5);
+  --qui-shadow-smooth: 0 4px 8px rgba(30, 40, 47, 0.08);
+}
