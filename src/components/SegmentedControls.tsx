@@ -6,24 +6,34 @@ interface ButtonProps {
   onClick?: (index: number) => void;
 }
 
+type SegmentedChildProps = ButtonProps & {
+  index?: number;
+  isSelected?: boolean;
+  size?: 's' | 'm';
+  setSelected?: () => void;
+};
+
 interface SegmentedControlsProps {
   'aria-label': string;
   'data-test-id'?: string;
   defaultSelected?: number;
   size?: 's' | 'm';
   border?: boolean;
-  children: React.ReactElement<ButtonProps>[];
+  children: React.ReactElement<SegmentedChildProps>[];
 }
 
-const SegmentedControlsButton: React.FC<ButtonProps & {
-  index?: number;
-  selected?: boolean;
-  size?: 's' | 'm';
-  setSelected?: () => void;
-}> = ({ text, selected, onClick, index, setSelected, size = 'm', 'data-test-id': testId }) => (
+const SegmentedControlsButton: React.FC<SegmentedChildProps> = ({
+  text,
+  isSelected,
+  onClick,
+  index,
+  setSelected,
+  size = 'm',
+  'data-test-id': testId,
+}) => (
   <button
     data-test-id={testId}
-    className={`segmented-btn segmented-btn--${size}${selected ? ' segmented-btn--selected' : ''}`}
+    className={`segmented-btn segmented-btn--${size}${isSelected ? ' segmented-btn--selected' : ''}`}
     onClick={() => {
       setSelected?.();
       onClick?.(index ?? 0);
@@ -48,7 +58,7 @@ const SegmentedControls: React.FC<SegmentedControlsProps> & {
       {React.Children.map(children, (child, index) =>
         React.cloneElement(child, {
           index,
-          selected: selected === index,
+          isSelected: selected === index,
           size,
           setSelected: () => setSelected(index),
         })
@@ -58,5 +68,5 @@ const SegmentedControls: React.FC<SegmentedControlsProps> & {
 };
 
 SegmentedControls.Button = SegmentedControlsButton;
-
 export default SegmentedControls;
+

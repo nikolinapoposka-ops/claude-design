@@ -8,11 +8,57 @@ import CreateTemplateContent from './components/CreateTemplateContent';
 import TemplateDetailContent from './components/TemplateDetailContent';
 import EditTemplateContent from './components/EditTemplateContent';
 import DiscardChangesModal from './components/DiscardChangesModal';
+import ChooseTemplateView from './components/ChooseTemplateView';
+import TemplateOverviewContent from './components/TemplateOverviewContent';
+import ReviewAndSendContent from './components/ReviewAndSendContent';
+import AuditDetailView from './components/AuditDetailView';
+import AuditConfigView from './components/AuditConfigView';
+import EditAudienceDatesView from './components/EditAudienceDatesView';
+import type { EditAudienceData } from './components/EditAudienceDatesView';
+import StoreSubmissionView from './components/StoreSubmissionView';
+import AssignAuditorsView from './components/AssignAuditorsView';
+import AssignStoresView from './components/AssignStoresView';
+import type { SendAuditData } from './components/ReviewAndSendContent';
 import { ToastProvider, useToast } from './components/Toast';
 import type { Template } from './components/TemplateCard';
-import type { CollectionFilter } from './components/AuditContent';
+import type { CollectionFilter, AuditCollectionFilter } from './components/AuditContent';
 
-type View = 'list' | 'create-template' | 'template-detail' | 'edit-template';
+type View = 'list' | 'create-template' | 'template-detail' | 'edit-template'
+           | 'choose-template' | 'template-overview' | 'review-and-send'
+           | 'assign-auditors' | 'assign-stores' | 'audit-detail' | 'audit-config'
+           | 'edit-audience-dates' | 'store-submission';
+
+export interface MockAuditor {
+  id: string;
+  name: string;
+  role: string;
+  initials: string;
+}
+
+export interface AuditorAssignment {
+  auditor: MockAuditor;
+  stores: string[];
+}
+
+export interface AuditInstance {
+  id: string;
+  title: string;
+  category: string;
+  sendOutDate: string;
+  startDate: string;
+  dueDate: string;
+  recurringDate?: string;
+  status: 'draft' | 'sent' | 'scheduled';
+  audience: 'stores' | 'auditors' | null;
+  stores: string[];
+  auditors: { name: string; initials: string }[];
+  completedCount: number;
+  auditorAssignments?: AuditorAssignment[];
+  sectionData?: Array<{ title: string; questions: string[] }>;
+  description?: string;
+  isPriority?: boolean;
+  message?: string;
+}
 
 const DEFAULT_DRAFT_TITLE = 'New brush and sponge drop';
 
@@ -44,6 +90,16 @@ function AppContent() {
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>('library');
+  const [auditCollectionFilter, setAuditCollectionFilter] = useState<AuditCollectionFilter>('overview');
+  const [selectedAuditTemplate, setSelectedAuditTemplate] = useState<Template | null>(null);
+  const [auditInstances, setAuditInstances] = useState<AuditInstance[]>([]);
+  const [auditorAssignments, setAuditorAssignments] = useState<AuditorAssignment[]>([]);
+  const [selfAuditStores, setSelfAuditStores] = useState<string[]>([]);
+  const [selectedAuditInstance, setSelectedAuditInstance] = useState<AuditInstance | null>(null);
+  const [selectedStoreName, setSelectedStoreName] = useState<string>('');
+  const [selectedStoreStatus, setSelectedStoreStatus] = useState<string>('');
+
+  // --- Template library handlers ---
 
   const handleNavigateToTemplate = () => {
     setDraftTitle(DEFAULT_DRAFT_TITLE);
@@ -96,7 +152,6 @@ function AppContent() {
 
   const handleBackFromTemplate = () => {
     if (editingDraftId) {
-      // Existing draft — just update its title if changed, don't create a duplicate
       setReusableTemplates((prev) =>
         prev.map((t) => (t.id === editingDraftId ? { ...t, title: draftTitle.trim() || t.title } : t))
       );
@@ -157,7 +212,6 @@ function AppContent() {
 
   const handleSaveTemplate = (data: { title: string; category: string; isPriority: boolean; description: string; sections: Array<{ title: string; questions: string[] }> }) => {
     if (editingDraftId) {
-      // Convert existing draft → library template
       setReusableTemplates((prev) =>
         prev.map((t) =>
           t.id === editingDraftId
@@ -172,7 +226,6 @@ function AppContent() {
       return;
     }
 
-    // New template — optimistic UI flow
     const tempId = `temp-${++tempIdCounter}`;
     const optimisticTemplate: Template = {
       id: tempId,
@@ -193,7 +246,6 @@ function AppContent() {
     setView('list');
     setActiveTab(1);
 
-    // Simulate API call
     setTimeout(() => {
       const realId = `template-${Date.now()}`;
       setReusableTemplates((prev) =>
@@ -203,12 +255,158 @@ function AppContent() {
     }, 600);
   };
 
+  // --- Reuse audit flow handlers ---
+
+  const handleReuseTemplate = () => {
+    setView('choose-template');
+  };
+
+  const handleSelectAuditTemplate = (template: Template) => {
+    setSelectedAuditTemplate(template);
+    setView('template-overview');
+  };
+
+  const handleUseTemplate = () => {
+    setView('review-and-send');
+  };
+
+  const handleBackFromChooseTemplate = () => {
+    setView('list');
+  };
+
+  const handleBackFromTemplateOverview = () => {
+    setView('choose-template');
+  };
+
+  const handleBackFromReviewAndSend = () => {
+    if (selectedAuditTemplate) {
+      const draft: AuditInstance = {
+        id: `audit-draft-${Date.now()}`,
+        title: selectedAuditTemplate.title,
+        category: selectedAuditTemplate.category,
+        sendOutDate: '',
+        startDate: '',
+        dueDate: '',
+        status: 'draft',
+        audience: null,
+        stores: [],
+        auditors: [],
+        completedCount: 0,
+      };
+      setAuditInstances((prev) => [draft, ...prev]);
+    }
+    setSelectedAuditTemplate(null);
+    setAuditorAssignments([]);
+    setSelfAuditStores([]);
+    setActiveTab(0);
+    setView('list');
+  };
+
+  // --- Audience assignment handlers ---
+
+  const handleAssignAuditors = () => setView('assign-auditors');
+  const handleAssignStores = () => setView('assign-stores');
+
+  const handleConfirmAuditorAssignments = (assignments: AuditorAssignment[]) => {
+    setAuditorAssignments(assignments);
+    setSelfAuditStores([]);
+    setView('review-and-send');
+  };
+
+  const handleConfirmStoreSelection = (stores: string[]) => {
+    setSelfAuditStores(stores);
+    setAuditorAssignments([]);
+    setView('review-and-send');
+  };
+
+  const handleClearAuditors = () => setAuditorAssignments([]);
+  const handleClearStores = () => setSelfAuditStores([]);
+
+  const handleViewAudit = (instance: AuditInstance) => {
+    setSelectedAuditInstance(instance);
+    setView('audit-detail');
+  };
+
+  const handleBackFromAuditDetail = () => {
+    setSelectedAuditInstance(null);
+    setView('list');
+  };
+
+  const handleViewDetails = () => {
+    setView('audit-config');
+  };
+
+  const handleBackFromAuditConfig = () => {
+    setView('audit-detail');
+  };
+
+  const handleViewStore = (storeName: string, status: string) => {
+    setSelectedStoreName(storeName);
+    setSelectedStoreStatus(status);
+    setView('store-submission');
+  };
+
+  const handleEditAudienceDates = () => {
+    setView('edit-audience-dates');
+  };
+
+  const handleSaveAudienceDates = (data: EditAudienceData) => {
+    if (selectedAuditInstance) {
+      const updated: AuditInstance = {
+        ...selectedAuditInstance,
+        recurringDate: data.recurringDate,
+        dueDate: data.dueDate,
+      };
+      setSelectedAuditInstance(updated);
+      setAuditInstances((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
+    }
+    setView('audit-config');
+    createToast({ message: 'Audience & dates updated', type: 'positive', duration: 3000 });
+  };
+
+  const handleSendAudit = (data: SendAuditData) => {
+    if (selectedAuditTemplate) {
+      const isScheduled = !!data.sendOutDate && new Date(data.sendOutDate) > new Date();
+      const instance: AuditInstance = {
+        id: `audit-${Date.now()}`,
+        title: selectedAuditTemplate.title,
+        category: selectedAuditTemplate.category,
+        sendOutDate: data.sendOutDate || formatDate(new Date()),
+        startDate: data.startDate || '',
+        dueDate: data.dueDate || '',
+        status: isScheduled ? 'scheduled' : 'sent',
+        audience: auditorAssignments.length > 0 ? 'auditors' : selfAuditStores.length > 0 ? 'stores' : null,
+        stores: auditorAssignments.length > 0
+          ? [...new Set(auditorAssignments.flatMap((a) => a.stores))]
+          : selfAuditStores,
+        auditors: auditorAssignments.map((a) => ({ name: a.auditor.name, initials: a.auditor.initials })),
+        completedCount: 0,
+        auditorAssignments: auditorAssignments.length > 0 ? [...auditorAssignments] : undefined,
+        sectionData: selectedAuditTemplate.sectionData,
+        description: selectedAuditTemplate.description,
+        isPriority: selectedAuditTemplate.isPriority,
+        recurringDate: data.recurringDate || '',
+        message: data.message || '',
+      };
+      setAuditInstances((prev) => [instance, ...prev]);
+    }
+    setAuditorAssignments([]);
+    setSelfAuditStores([]);
+    setSelectedAuditTemplate(null);
+    setActiveTab(0);
+    setView('list');
+    createToast({ message: 'Audit created', type: 'positive', duration: 3000 });
+  };
+
   return (
     <>
       <Navbar />
       {view === 'list' ? (
         <>
-          <SecondaryNav onNavigateToTemplate={handleNavigateToTemplate} />
+          <SecondaryNav
+            onNavigateToTemplate={handleNavigateToTemplate}
+            onReuseTemplate={handleReuseTemplate}
+          />
           <MainContent
             tab={activeTab}
             onTabChange={(tab) => setActiveTab(tab)}
@@ -218,6 +416,10 @@ function AppContent() {
             onViewTemplate={handleViewTemplate}
             collectionFilter={collectionFilter}
             onCollectionFilterChange={setCollectionFilter}
+            auditInstances={auditInstances}
+            auditCollectionFilter={auditCollectionFilter}
+            onAuditCollectionFilterChange={setAuditCollectionFilter}
+            onViewAudit={handleViewAudit}
           />
         </>
       ) : view === 'create-template' ? (
@@ -241,7 +443,7 @@ function AppContent() {
             />
           )}
         </>
-      ) : (
+      ) : view === 'edit-template' ? (
         <>
           <CreateTemplateNav onBack={handleRequestLeaveEdit} />
           {selectedTemplate && (
@@ -250,6 +452,88 @@ function AppContent() {
               onCancel={handleRequestLeaveEdit}
               onSave={handleSaveEditedTemplate}
               onDirtyChange={setEditIsDirty}
+            />
+          )}
+        </>
+      ) : view === 'choose-template' ? (
+        <>
+          <CreateTemplateNav onBack={handleBackFromChooseTemplate} />
+          <ChooseTemplateView
+            templates={reusableTemplates.filter((t) => !t.status || t.status === 'library')}
+            onSelect={handleSelectAuditTemplate}
+          />
+        </>
+      ) : view === 'template-overview' ? (
+        <>
+          <CreateTemplateNav onBack={handleBackFromTemplateOverview} />
+          {selectedAuditTemplate && (
+            <TemplateOverviewContent
+              template={selectedAuditTemplate}
+              onUseTemplate={handleUseTemplate}
+            />
+          )}
+        </>
+      ) : view === 'assign-auditors' ? (
+        <AssignAuditorsView
+          initialAssignments={auditorAssignments}
+          onConfirm={handleConfirmAuditorAssignments}
+          onCancel={() => setView('review-and-send')}
+        />
+      ) : view === 'assign-stores' ? (
+        <AssignStoresView
+          initialStores={selfAuditStores}
+          onConfirm={handleConfirmStoreSelection}
+          onCancel={() => setView('review-and-send')}
+        />
+      ) : view === 'audit-detail' ? (
+        <>
+          <CreateTemplateNav onBack={handleBackFromAuditDetail} />
+          {selectedAuditInstance && (
+            <AuditDetailView instance={selectedAuditInstance} onViewDetails={handleViewDetails} onViewStore={handleViewStore} />
+          )}
+        </>
+      ) : view === 'audit-config' ? (
+        <>
+          <CreateTemplateNav onBack={handleBackFromAuditConfig} />
+          {selectedAuditInstance && (
+            <AuditConfigView
+              instance={selectedAuditInstance}
+              onHideDetails={handleBackFromAuditConfig}
+              onEditAudienceDates={handleEditAudienceDates}
+            />
+          )}
+        </>
+      ) : view === 'edit-audience-dates' ? (
+        <>
+          <CreateTemplateNav onBack={() => setView('audit-config')} />
+          {selectedAuditInstance && (
+            <EditAudienceDatesView
+              instance={selectedAuditInstance}
+              onCancel={() => setView('audit-config')}
+              onSave={handleSaveAudienceDates}
+            />
+          )}
+        </>
+      ) : view === 'store-submission' ? (
+        <>
+          <CreateTemplateNav onBack={() => setView('audit-detail')} />
+          {selectedAuditInstance && (
+            <StoreSubmissionView instance={selectedAuditInstance} storeName={selectedStoreName} storeStatus={selectedStoreStatus} />
+          )}
+        </>
+      ) : (
+        <>
+          <CreateTemplateNav onBack={handleBackFromReviewAndSend} />
+          {selectedAuditTemplate && (
+            <ReviewAndSendContent
+              template={selectedAuditTemplate}
+              auditorAssignments={auditorAssignments}
+              selfAuditStores={selfAuditStores}
+              onAssignAuditors={handleAssignAuditors}
+              onAssignStores={handleAssignStores}
+              onClearAuditors={handleClearAuditors}
+              onClearStores={handleClearStores}
+              onSend={handleSendAudit}
             />
           )}
         </>

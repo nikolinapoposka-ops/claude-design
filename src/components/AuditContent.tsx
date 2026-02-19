@@ -3,6 +3,7 @@ import SegmentedControls from './SegmentedControls';
 import AuditCard from './AuditCard';
 import TemplateCard from './TemplateCard';
 import type { Template } from './TemplateCard';
+import type { AuditInstance } from '../App';
 
 const sampleAuditCards = [
   {
@@ -43,7 +44,7 @@ const sampleAuditCards = [
       total: 3,
       fraction: '1/3',
       percentage: 33,
-      auditorInitials: ['AB', 'AB'],
+      auditors: [{ initials: 'AB', name: 'Alice Brown' }, { initials: 'JD', name: 'James Doe' }],
       moreCount: 20,
     },
     startDate: 'Jul 20, 2024',
@@ -70,11 +71,112 @@ const chevronIcon = (
 );
 
 export type CollectionFilter = 'library' | 'drafts' | 'archived';
+export type AuditCollectionFilter = 'overview' | 'assigned-to-me' | 'awaiting-approval' | 'done' | 'sent' | 'scheduled' | 'audit-drafts' | 'all';
+
+const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const formatScheduledDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
+  return `${date}, ${time}`; // "Feb 25, 09:00"
+};
+
+const formatCardDate = (dateStr: string) => {
+  if (!dateStr) return today;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return today;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const toAuditCardProps = (inst: AuditInstance) => {
+  const base = {
+    id: inst.id,
+    title: inst.title,
+    startDate: inst.startDate ? formatCardDate(inst.startDate) : undefined,
+    dueDate: inst.dueDate || '—',
+    category: inst.category,
+  };
+
+  if (inst.status === 'draft') {
+    return { ...base, statusLabel: 'Draft' };
+  }
+
+  if (inst.status === 'scheduled') {
+    const scheduledDate = formatScheduledDate(inst.sendOutDate);
+    const storeCount = inst.stores.length;
+    const auditorCount = inst.auditors.length;
+    if (inst.audience === 'stores' && storeCount <= 1) {
+      return { ...base, store: inst.stores[0] ?? '—', scheduledDate };
+    }
+    if (inst.audience === 'auditors' && auditorCount === 1 && storeCount <= 1) {
+      return { ...base, store: inst.stores[0] ?? '—', auditor: inst.auditors[0], scheduledDate };
+    }
+    return { ...base, scheduledDate };
+  }
+
+  const storeCount = inst.stores.length;
+  const auditorCount = inst.auditors.length;
+
+  if (inst.audience === 'stores') {
+    if (storeCount <= 1) {
+      return { ...base, store: inst.stores[0] ?? '—', statusLabel: 'Not started' };
+    }
+    return {
+      ...base,
+      progress: {
+        total: storeCount,
+        fraction: `${inst.completedCount}/${storeCount}`,
+        percentage: Math.round((inst.completedCount / storeCount) * 100),
+      },
+    };
+  }
+
+  if (inst.audience === 'auditors') {
+    if (auditorCount === 1 && storeCount <= 1) {
+      return { ...base, store: inst.stores[0] ?? '—', statusLabel: 'Not started', auditor: inst.auditors[0] };
+    }
+    if (auditorCount === 1) {
+      return {
+        ...base,
+        progress: {
+          total: storeCount,
+          fraction: `${inst.completedCount}/${storeCount}`,
+          percentage: Math.round((inst.completedCount / storeCount) * 100),
+        },
+        auditor: inst.auditors[0],
+      };
+    }
+    return {
+      ...base,
+      progress: {
+        total: storeCount,
+        fraction: `${inst.completedCount}/${storeCount}`,
+        percentage: Math.round((inst.completedCount / storeCount) * 100),
+        auditors: inst.auditors.slice(0, 2),
+        moreCount: inst.auditors.length > 2 ? inst.auditors.length - 2 : undefined,
+      },
+    };
+  }
+
+  return { ...base, statusLabel: 'Not started' };
+};
 
 const collectionItems: { key: CollectionFilter; label: string }[] = [
   { key: 'library', label: 'Template library' },
   { key: 'drafts', label: 'Template drafts' },
   { key: 'archived', label: 'Archived' },
+];
+
+const auditCollectionItems: { key: AuditCollectionFilter; label: string }[] = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'assigned-to-me', label: 'Assigned to me' },
+  { key: 'awaiting-approval', label: 'Awaiting my approval' },
+  { key: 'done', label: 'Done' },
+  { key: 'sent', label: 'Sent' },
+  { key: 'scheduled', label: 'Scheduled' },
+  { key: 'audit-drafts', label: 'Audit drafts' },
+  { key: 'all', label: 'All' },
 ];
 
 interface AuditContentProps {
@@ -86,9 +188,13 @@ interface AuditContentProps {
   onViewTemplate: (template: Template) => void;
   collectionFilter: CollectionFilter;
   onCollectionFilterChange: (filter: CollectionFilter) => void;
+  auditInstances: AuditInstance[];
+  auditCollectionFilter: AuditCollectionFilter;
+  onAuditCollectionFilterChange: (filter: AuditCollectionFilter) => void;
+  onViewAudit: (instance: AuditInstance) => void;
 }
 
-const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates, onArchiveTemplate, onDeleteTemplate, onViewTemplate, collectionFilter, onCollectionFilterChange }) => {
+const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates, onArchiveTemplate, onDeleteTemplate, onViewTemplate, collectionFilter, onCollectionFilterChange, auditInstances, auditCollectionFilter, onAuditCollectionFilterChange, onViewAudit }) => {
   const [selectedTab, setSelectedTab] = useState(tab);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -97,7 +203,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
 
   useEffect(() => { setSelectedTab(tab); }, [tab]);
 
-  useEffect(() => { setCreatorFilter(null); }, [collectionFilter, selectedTab]);
+  useEffect(() => { setCreatorFilter(null); }, [collectionFilter, auditCollectionFilter, selectedTab]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -116,6 +222,33 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
   };
 
   const isTemplates = selectedTab === 1;
+
+  // Audit instance filtering
+  const filteredAuditCards = (() => {
+    const sent      = auditInstances.filter((i) => i.status === 'sent');
+    const scheduled = auditInstances.filter((i) => i.status === 'scheduled');
+    const drafts    = auditInstances.filter((i) => i.status === 'draft');
+    switch (auditCollectionFilter) {
+      case 'overview':      return [...sent.map(toAuditCardProps), ...sampleAuditCards];
+      case 'sent':          return sent.map(toAuditCardProps);
+      case 'scheduled':     return scheduled.map(toAuditCardProps);
+      case 'audit-drafts':  return drafts.map(toAuditCardProps);
+      case 'all':           return [...auditInstances.map(toAuditCardProps), ...sampleAuditCards];
+      default:              return sampleAuditCards;
+    }
+  })();
+
+  // Audit collection counts (show 99+ for mock items, real counts for instances)
+  const auditCountsMap: Record<AuditCollectionFilter, number> = {
+    'overview':        auditInstances.filter((i) => i.status === 'sent').length + sampleAuditCards.length,
+    'assigned-to-me':  sampleAuditCards.length,
+    'awaiting-approval': 0,
+    'done':            0,
+    'sent':            auditInstances.filter((i) => i.status === 'sent').length,
+    'scheduled':       auditInstances.filter((i) => i.status === 'scheduled').length,
+    'audit-drafts':    auditInstances.filter((i) => i.status === 'draft').length,
+    'all':             auditInstances.length + sampleAuditCards.length,
+  };
 
   // Counts per filter
   const libCount = templates.filter((t) => !t.status || t.status === 'library').length;
@@ -143,7 +276,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
 
   const listTitle = isTemplates
     ? `Templates (${filteredTemplates.length})`
-    : 'Audits (40)';
+    : `Audits (${filteredAuditCards.length})`;
 
   const formatCount = (n: number) => (n > 99 ? '99+' : String(n));
 
@@ -151,7 +284,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     <div className="audit-content">
 
       {/* Collection sidebar */}
-      {collectionOpen && isTemplates && (
+      {collectionOpen && (
         <>
           <div className="collection-backdrop" onClick={() => setCollectionOpen(false)} />
           <div className="collection-sidebar">
@@ -169,19 +302,28 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
               </button>
             </div>
             <div className="collection-sidebar-items">
-              {collectionItems.map((item) => (
-                <button
-                  key={item.key}
-                  className={`collection-sidebar-item${collectionFilter === item.key ? ' collection-sidebar-item--active' : ''}`}
-                  onClick={() => {
-                    onCollectionFilterChange(item.key);
-                    setCollectionOpen(false);
-                  }}
-                >
-                  <span className="collection-sidebar-label">{item.label}</span>
-                  <span className="collection-badge">{formatCount(countsMap[item.key])}</span>
-                </button>
-              ))}
+              {isTemplates
+                ? collectionItems.map((item) => (
+                    <button
+                      key={item.key}
+                      className={`collection-sidebar-item${collectionFilter === item.key ? ' collection-sidebar-item--active' : ''}`}
+                      onClick={() => { onCollectionFilterChange(item.key); setCollectionOpen(false); }}
+                    >
+                      <span className="collection-sidebar-label">{item.label}</span>
+                      <span className="collection-badge">{formatCount(countsMap[item.key])}</span>
+                    </button>
+                  ))
+                : auditCollectionItems.map((item) => (
+                    <button
+                      key={item.key}
+                      className={`collection-sidebar-item${auditCollectionFilter === item.key ? ' collection-sidebar-item--active' : ''}`}
+                      onClick={() => { onAuditCollectionFilterChange(item.key); setCollectionOpen(false); }}
+                    >
+                      <span className="collection-sidebar-label">{item.label}</span>
+                      <span className="collection-badge">{formatCount(auditCountsMap[item.key])}</span>
+                    </button>
+                  ))
+              }
             </div>
           </div>
         </>
@@ -214,9 +356,11 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
           <button
             className="btn btn--outlined btn--pill"
             data-test-id="btn-primary-action"
-            onClick={() => isTemplates && setCollectionOpen((o) => !o)}
+            onClick={() => setCollectionOpen((o) => !o)}
           >
-            {isTemplates ? (collectionItems.find((i) => i.key === collectionFilter)?.label ?? 'Template library') : 'Overview'}
+            {isTemplates
+              ? (collectionItems.find((i) => i.key === collectionFilter)?.label ?? 'Template library')
+              : (auditCollectionItems.find((i) => i.key === auditCollectionFilter)?.label ?? 'Overview')}
             {chevronIcon}
           </button>
           <button className="tool-button" data-test-id="btn-search">
@@ -311,7 +455,16 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
                 onClick={() => onViewTemplate(card)}
               />
             ))
-          : sampleAuditCards.map((card) => <AuditCard key={card.id} {...card} />)
+          : filteredAuditCards.map((card) => {
+            const instance = auditInstances.find((i) => i.id === card.id);
+            return (
+              <AuditCard
+                key={card.id}
+                {...card}
+                onClick={instance ? () => onViewAudit(instance) : undefined}
+              />
+            );
+          })
         }
       </div>
 

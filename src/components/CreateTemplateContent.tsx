@@ -10,19 +10,210 @@ const CATEGORIES = [
 
 const SIZES = ['Size S', 'Size M', 'Size L'];
 
-interface QuestionOption { id: string; text: string; }
+type ConditionalDestination =
+  | { type: 'next' }
+  | { type: 'question'; sectionId: string; questionId: string };
+
+interface FollowUpTask {
+  title: string;
+  description: string;
+  isPriority: boolean;
+  category: string;
+  size: string;
+}
+
+const EMPTY_FOLLOW_UP_TASK: FollowUpTask = { title: '', description: '', isPriority: false, category: '', size: '' };
+
+interface QuestionOption {
+  id: string;
+  text: string;
+  destination?: ConditionalDestination;
+  followUpTask?: FollowUpTask;
+  scoreValue?: number;
+}
+
+interface FollowUpTaskPanelProps {
+  initialTask: FollowUpTask;
+  mode: 'create' | 'edit';
+  onConfirm: (task: FollowUpTask) => void;
+  onClose: () => void;
+  onDelete?: () => void;
+}
+
+const FollowUpTaskPanel: React.FC<FollowUpTaskPanelProps> = ({ initialTask, mode, onConfirm, onClose, onDelete }) => {
+  const [task, setTask] = useState<FollowUpTask>(initialTask);
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const sizeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (sizeRef.current && !sizeRef.current.contains(e.target as Node)) setSizeOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <>
+      <div className="followup-panel-backdrop" onClick={onClose} />
+      <div className="followup-panel">
+        <div className="followup-panel-header">
+          <h2 className="followup-panel-title">Follow-up task</h2>
+          <button className="followup-panel-close" onClick={onClose} aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div className="followup-panel-body">
+          <div className="followup-field">
+            <label className="followup-field-label">Title</label>
+            <input
+              className="followup-field-input"
+              value={task.title}
+              onChange={(e) => setTask({ ...task, title: e.target.value })}
+            />
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Description</label>
+            <input
+              className="followup-field-input"
+              value={task.description}
+              onChange={(e) => setTask({ ...task, description: e.target.value })}
+            />
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Attachment</label>
+            <div className="followup-attachment-box">
+              <button className="followup-circle-add-btn" aria-label="Add attachment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Priority</label>
+            <label className="followup-priority-row">
+              <span>Flag this as a priority</span>
+              <input
+                type="checkbox"
+                className="followup-priority-checkbox"
+                checked={task.isPriority}
+                onChange={(e) => setTask({ ...task, isPriority: e.target.checked })}
+              />
+            </label>
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Category</label>
+            <input
+              className="followup-field-input"
+              value={task.category}
+              onChange={(e) => setTask({ ...task, category: e.target.value })}
+            />
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Tags</label>
+            <div className="followup-tags-row">
+              <button className="followup-circle-add-btn" aria-label="Add tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+              <span className="followup-tags-none">None</span>
+            </div>
+          </div>
+          <div className="followup-field">
+            <label className="followup-field-label">Size</label>
+            <div className="followup-size-wrap" ref={sizeRef}>
+              <button className="followup-size-btn" onClick={() => setSizeOpen((o) => !o)}>
+                <span>{task.size || 'None'}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+              {sizeOpen && (
+                <div className="followup-size-dropdown">
+                  {['None', ...SIZES].map((s) => (
+                    <button
+                      key={s}
+                      className="followup-size-item"
+                      onClick={() => { setTask({ ...task, size: s === 'None' ? '' : s }); setSizeOpen(false); }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="followup-divider" />
+          <button className="followup-action-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add uploads file
+          </button>
+          <button className="followup-action-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Add question
+          </button>
+        </div>
+        <div className="followup-panel-footer">
+          {mode === 'edit' ? (
+            <>
+              <button className="followup-delete-btn" onClick={onDelete}>Delete</button>
+              <button className="followup-confirm-btn" onClick={() => onConfirm(task)}>Done</button>
+            </>
+          ) : (
+            <>
+              <button className="followup-cancel-btn" onClick={onClose}>Cancel</button>
+              <button className="followup-confirm-btn" onClick={() => onConfirm(task)}>Add task to question</button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
 
 interface Question {
   id: string;
   title: string;
   options: QuestionOption[];
   required: boolean;
+  hasConditionalLogic?: boolean;
+  includeInScoring: boolean;
 }
 
 interface Section {
   id: string;
   title: string;
   questions: Question[];
+}
+
+function getDestinationLabel(
+  dest: ConditionalDestination | undefined,
+  sections: Section[],
+  sectionIndex: number,
+): string {
+  if (!dest || dest.type === 'next') return 'Continue to next';
+  const secIdx = sections.findIndex((s) => s.id === dest.sectionId);
+  if (secIdx === -1) return 'Continue to next';
+  const sec = sections[secIdx];
+  const qIdx = sec.questions.findIndex((q) => q.id === dest.questionId);
+  if (qIdx === -1) return 'Continue to next';
+  const qNum = qIdx + 1;
+  const title = sec.questions[qIdx].title;
+  if (secIdx === sectionIndex) return `Q${qNum}. ${title}`;
+  return `S${secIdx + 1} → Q${qNum}. ${title}`;
 }
 
 const createQuestion = (): Question => ({
@@ -33,11 +224,14 @@ const createQuestion = (): Question => ({
     { id: `opt-${Date.now()}-2`, text: 'Option 1' },
   ],
   required: false,
+  includeInScoring: false,
 });
 
 interface QuestionEditorProps {
   question: Question;
   index: number;
+  sections: Section[];
+  sectionIndex: number;
   onTitleChange: (t: string) => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -45,138 +239,331 @@ interface QuestionEditorProps {
   onAddOption: () => void;
   onDeleteOption: (id: string) => void;
   onOptionTextChange: (id: string, text: string) => void;
+  onDestinationChange: (optionId: string, dest: ConditionalDestination) => void;
+  onToggleConditionalLogic: () => void;
+  onSetFollowUpTask: (optionId: string, task: FollowUpTask) => void;
+  onDeleteFollowUpTask: (optionId: string) => void;
+  onToggleIncludeInScoring: () => void;
+  onSetScoreValue: (optionId: string, value: number | undefined) => void;
 }
 
 const QuestionEditor: React.FC<QuestionEditorProps> = ({
-  question, index, onTitleChange, onDelete, onDuplicate,
+  question, index, sections, sectionIndex,
+  onTitleChange, onDelete, onDuplicate,
   onToggleRequired, onAddOption, onDeleteOption, onOptionTextChange,
-}) => (
-  <div className="question-editor">
-    <div className="section-drag-handle">
-      <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-        <circle cx="7" cy="5" r="1.3" /><circle cx="13" cy="5" r="1.3" />
-        <circle cx="7" cy="10" r="1.3" /><circle cx="13" cy="10" r="1.3" />
-        <circle cx="7" cy="15" r="1.3" /><circle cx="13" cy="15" r="1.3" />
-      </svg>
-    </div>
-    <div className="question-editor-inner">
-      {/* Number + actions */}
-      <div className="question-top-row">
-        <span className="question-number">{index + 1}.</span>
-        <div className="question-top-actions">
-          <button className="question-action-btn" aria-label="Duplicate question" onClick={onDuplicate}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-            </svg>
-          </button>
-          <button className="question-action-btn question-action-btn--danger" aria-label="Delete question" onClick={onDelete}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
+  onDestinationChange, onToggleConditionalLogic,
+  onSetFollowUpTask, onDeleteFollowUpTask,
+  onToggleIncludeInScoring, onSetScoreValue,
+}) => {
+  const [openDropdownOptId, setOpenDropdownOptId] = useState<string | null>(null);
+  const [followUpPanelOptId, setFollowUpPanelOptId] = useState<string | null>(null);
+  const [followUpPanelMode, setFollowUpPanelMode] = useState<'create' | 'edit'>('create');
+  const [draftTask, setDraftTask] = useState<FollowUpTask>(EMPTY_FOLLOW_UP_TASK);
+  const [scoringExpanded, setScoringExpanded] = useState(false);
 
-      {/* Title + type */}
-      <div className="question-fields-row">
-        <div className="question-field-group question-field-group--title">
-          <label className="question-field-label">Question title</label>
-          <div className="question-title-input-wrap">
-            <input
-              className="question-title-input"
-              value={question.title}
-              onChange={(e) => onTitleChange(e.target.value)}
-            />
-            <button className="question-img-btn" aria-label="Add image">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
+  const questionIndex = sections[sectionIndex]?.questions.findIndex((q) => q.id === question.id) ?? -1;
+  const questionsInSection = sections[sectionIndex]?.questions.slice(questionIndex + 1) ?? [];
+  const otherSections = sections
+    .map((s, i) => ({ section: s, sIdx: i }))
+    .filter(({ sIdx }) => sIdx !== sectionIndex);
+
+  return (
+    <div className="question-editor">
+      <div className="section-drag-handle">
+        <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+          <circle cx="7" cy="5" r="1.3" /><circle cx="13" cy="5" r="1.3" />
+          <circle cx="7" cy="10" r="1.3" /><circle cx="13" cy="10" r="1.3" />
+          <circle cx="7" cy="15" r="1.3" /><circle cx="13" cy="15" r="1.3" />
+        </svg>
+      </div>
+      <div className="question-editor-inner">
+        {/* Number + actions */}
+        <div className="question-top-row">
+          <span className="question-number">{index + 1}.</span>
+          <div className="question-top-actions">
+            <button className="question-action-btn" aria-label="Duplicate question" onClick={onDuplicate}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+              </svg>
+            </button>
+            <button className="question-action-btn question-action-btn--danger" aria-label="Delete question" onClick={onDelete}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"></path>
               </svg>
             </button>
           </div>
         </div>
-        <div className="question-field-group question-field-group--type">
-          <label className="question-field-label">Question type</label>
-          <button className="question-type-btn">
-            <span>Multiple choice</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-      </div>
 
-      {/* Options */}
-      <div className="question-options">
-        {question.options.map((opt) => (
-          <div key={opt.id} className="question-option-row">
-            <div className="option-radio-circle" />
-            <div className="option-input-wrap">
+        {/* Title + type */}
+        <div className="question-fields-row">
+          <div className="question-field-group question-field-group--title">
+            <label className="question-field-label">Question title</label>
+            <div className="question-title-input-wrap">
               <input
-                className="option-input"
-                value={opt.text}
-                onChange={(e) => onOptionTextChange(opt.id, e.target.value)}
+                className="question-title-input"
+                value={question.title}
+                onChange={(e) => onTitleChange(e.target.value)}
               />
-              <button className="option-action-btn" aria-label="Mark correct">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                  <polyline points="20 6 9 17 4 12"></polyline>
+              <button className="question-img-btn" aria-label="Add image">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
                 </svg>
               </button>
             </div>
-            <button className="option-action-btn" aria-label="Remove option" onClick={() => onDeleteOption(opt.id)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-            <button className="option-action-btn" aria-label="Score option">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <polyline points="9 11 12 14 22 4"></polyline>
-                <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+          </div>
+          <div className="question-field-group question-field-group--type">
+            <label className="question-field-label">Question type</label>
+            <button className="question-type-btn">
+              <span>Multiple choice</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                <polyline points="9 18 15 12 9 6"></polyline>
               </svg>
             </button>
           </div>
-        ))}
-      </div>
-
-      {/* Footer: add options + settings */}
-      <div className="question-footer-row">
-        <div className="question-footer-left">
-          <button className="question-ghost-btn" onClick={onAddOption}>Add option</button>
-          <span className="question-or-text">or</span>
-          <button className="question-ghost-btn">Add other</button>
         </div>
-        <div className="question-footer-right">
-          <button className="question-rule-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-            </svg>
-            Add rule
-          </button>
-          <label className="question-required-label">
-            <span className="toggle-switch">
-              <input type="checkbox" checked={question.required} onChange={onToggleRequired} />
-              <span className="toggle-slider"></span>
-            </span>
-            Required
-          </label>
-        </div>
-      </div>
 
-      {/* Scoring */}
-      <div className="question-scoring-row">
-        <span className="question-scoring-label">Scoring setting</span>
-        <span className="scoring-enabled-badge">Enabled</span>
-        <svg style={{ marginLeft: 'auto' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
+        {/* Options */}
+        <div className="question-options">
+          {question.options.map((opt) => {
+            const isNext = !opt.destination || opt.destination.type === 'next';
+            return (
+              <React.Fragment key={opt.id}>
+              <div className="question-option-row">
+                <div className="option-radio-circle" />
+                <div className="option-input-wrap">
+                  <input
+                    className="option-input"
+                    value={opt.text}
+                    onChange={(e) => onOptionTextChange(opt.id, e.target.value)}
+                  />
+                  <button className="option-action-btn" aria-label="Mark correct">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  className={`option-action-btn${opt.followUpTask ? ' option-action-btn--active' : ''}`}
+                  aria-label="Add follow-up task"
+                  onClick={() => { setDraftTask(opt.followUpTask ?? EMPTY_FOLLOW_UP_TASK); setFollowUpPanelMode(opt.followUpTask ? 'edit' : 'create'); setFollowUpPanelOptId(opt.id); }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+                  </svg>
+                </button>
+                <button className="option-action-btn" aria-label="Remove option" onClick={() => onDeleteOption(opt.id)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+                {question.hasConditionalLogic && (
+                  <div className="option-routing-wrap">
+                    <button
+                      className="option-routing-btn"
+                      onClick={() => setOpenDropdownOptId(openDropdownOptId === opt.id ? null : opt.id)}
+                    >
+                      <span>{getDestinationLabel(opt.destination, sections, sectionIndex)}</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                    {openDropdownOptId === opt.id && (
+                      <>
+                        <div className="option-routing-overlay" onClick={() => setOpenDropdownOptId(null)} />
+                        <div className="option-routing-panel">
+                          <div className="option-routing-panel-title">Choose where this answer should go</div>
+                          <div
+                            className={`option-routing-next-row${isNext ? ' option-routing-item--selected' : ''}`}
+                            onClick={() => { onDestinationChange(opt.id, { type: 'next' }); setOpenDropdownOptId(null); }}
+                          >
+                            <span>Next</span>
+                            {isNext && (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            )}
+                          </div>
+                          {questionsInSection.length > 0 && (
+                            <>
+                              <div className="option-routing-group-header">Question in this section</div>
+                              {questionsInSection.map((q, i) => {
+                                const qNum = questionIndex + 2 + i;
+                                const isSelected = opt.destination?.type === 'question' && opt.destination.questionId === q.id;
+                                return (
+                                  <div
+                                    key={q.id}
+                                    className={`option-routing-item${isSelected ? ' option-routing-item--selected' : ''}`}
+                                    onClick={() => {
+                                      onDestinationChange(opt.id, { type: 'question', sectionId: sections[sectionIndex].id, questionId: q.id });
+                                      setOpenDropdownOptId(null);
+                                    }}
+                                  >
+                                    Q{qNum}. {q.title}
+                                  </div>
+                                );
+                              })}
+                            </>
+                          )}
+                          {otherSections.length > 0 && (
+                            <>
+                              <div className="option-routing-group-header">Other sections</div>
+                              {otherSections.map(({ section, sIdx }) => (
+                                <React.Fragment key={section.id}>
+                                  <div className="option-routing-section-name">S{sIdx + 1}. {section.title}</div>
+                                  {section.questions.map((q, qi) => {
+                                    const isSelected = opt.destination?.type === 'question' && opt.destination.questionId === q.id;
+                                    return (
+                                      <div
+                                        key={q.id}
+                                        className={`option-routing-item${isSelected ? ' option-routing-item--selected' : ''}`}
+                                        onClick={() => {
+                                          onDestinationChange(opt.id, { type: 'question', sectionId: section.id, questionId: q.id });
+                                          setOpenDropdownOptId(null);
+                                        }}
+                                      >
+                                        Q{qi + 1}. {q.title}
+                                      </div>
+                                    );
+                                  })}
+                                </React.Fragment>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+              {opt.followUpTask && (
+                <div className="option-followup-row">
+                  <span className="option-followup-arrow">↳</span>
+                  <div className="option-followup-content">
+                    <span className="option-followup-label">Associated follow-up task</span>
+                    <span className="option-followup-title">{opt.followUpTask.title}</span>
+                  </div>
+                  <div className="option-followup-actions">
+                    <button
+                      className="option-action-btn"
+                      aria-label="Edit follow-up task"
+                      onClick={() => { setDraftTask(opt.followUpTask!); setFollowUpPanelMode('edit'); setFollowUpPanelOptId(opt.id); }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                    </button>
+                    <button
+                      className="option-action-btn option-action-btn--danger"
+                      aria-label="Delete follow-up task"
+                      onClick={() => onDeleteFollowUpTask(opt.id)}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        {/* Footer: add options + settings */}
+        <div className="question-footer-row">
+          <div className="question-footer-left">
+            <button className="question-ghost-btn" onClick={onAddOption}>Add option</button>
+            <span className="question-or-text">or</span>
+            <button className="question-ghost-btn">Add other</button>
+          </div>
+          <div className="question-footer-right">
+            <button className="question-rule-btn" onClick={onToggleConditionalLogic}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+              </svg>
+              {question.hasConditionalLogic ? 'Remove rule' : 'Add rule'}
+            </button>
+            <label className="question-required-label">
+              <span className="toggle-switch">
+                <input type="checkbox" checked={question.required} onChange={onToggleRequired} />
+                <span className="toggle-slider"></span>
+              </span>
+              Required
+            </label>
+          </div>
+        </div>
+
+        {/* Scoring */}
+        <div className="question-scoring-row" onClick={() => setScoringExpanded(v => !v)}>
+          <span className="question-scoring-label">Scoring setting</span>
+          {question.includeInScoring
+            ? <span className="scoring-enabled-badge">Enabled</span>
+            : <span className="scoring-disabled-badge">Disabled</span>}
+          <svg style={{ marginLeft: 'auto', transform: scoringExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+        {scoringExpanded && (
+          <div className="scoring-expanded-body">
+            <div className="scoring-include-row">
+              <div className="scoring-include-text">
+                <span className="scoring-include-label">Include in scoring</span>
+                <span className="scoring-include-desc">When enabled, this question contributes to the final audit score</span>
+              </div>
+              <button
+                className={`scoring-toggle${question.includeInScoring ? ' scoring-toggle--on' : ''}`}
+                onClick={(e) => { e.stopPropagation(); onToggleIncludeInScoring(); }}
+                aria-label="Toggle include in scoring"
+              >
+                {question.includeInScoring && (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" width="14" height="14">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                )}
+              </button>
+            </div>
+            {question.includeInScoring && (
+              <div className="scoring-values-section">
+                <span className="scoring-values-label">Scoring values</span>
+                <div className="scoring-values-grid">
+                  {question.options.map((opt, idx) => (
+                    <div className="scoring-value-cell" key={opt.id}>
+                      <span className="scoring-value-option-label">{opt.text || `Option ${idx + 1}`}</span>
+                      <input
+                        type="number"
+                        className="scoring-value-input"
+                        value={opt.scoreValue ?? ''}
+                        placeholder="0"
+                        onChange={(e) => onSetScoreValue(opt.id, e.target.value === '' ? undefined : Number(e.target.value))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+      {followUpPanelOptId && (
+        <FollowUpTaskPanel
+          initialTask={draftTask}
+          mode={followUpPanelMode}
+          onConfirm={(task) => { onSetFollowUpTask(followUpPanelOptId, task); setFollowUpPanelOptId(null); }}
+          onClose={() => setFollowUpPanelOptId(null)}
+          onDelete={() => { onDeleteFollowUpTask(followUpPanelOptId); setFollowUpPanelOptId(null); }}
+        />
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 interface CreateTemplateContentProps {
   title: string;
@@ -321,6 +708,112 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
     );
   };
 
+  const handleToggleConditionalLogic = (sectionId: string, questionId: string) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId
+                  ? {
+                      ...q,
+                      hasConditionalLogic: !q.hasConditionalLogic,
+                      options: q.hasConditionalLogic
+                        ? q.options.map((o) => ({ ...o, destination: undefined }))
+                        : q.options,
+                    }
+                  : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleDestinationChange = (sectionId: string, questionId: string, optionId: string, dest: ConditionalDestination) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId
+                  ? { ...q, options: q.options.map((o) => o.id === optionId ? { ...o, destination: dest } : o) }
+                  : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleSetFollowUpTask = (sectionId: string, questionId: string, optionId: string, task: FollowUpTask) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId
+                  ? { ...q, options: q.options.map((o) => o.id === optionId ? { ...o, followUpTask: task } : o) }
+                  : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleDeleteFollowUpTask = (sectionId: string, questionId: string, optionId: string) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId
+                  ? { ...q, options: q.options.map((o) => o.id === optionId ? { ...o, followUpTask: undefined } : o) }
+                  : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleToggleIncludeInScoring = (sectionId: string, questionId: string) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId ? { ...q, includeInScoring: !q.includeInScoring } : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
+  const handleSetScoreValue = (sectionId: string, questionId: string, optionId: string, value: number | undefined) => {
+    setSections((prev) =>
+      prev.map((s) =>
+        s.id === sectionId
+          ? {
+              ...s,
+              questions: s.questions.map((q) =>
+                q.id === questionId
+                  ? { ...q, options: q.options.map((o) => o.id === optionId ? { ...o, scoreValue: value } : o) }
+                  : q
+              ),
+            }
+          : s
+      )
+    );
+  };
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setDropdownOpen(false);
@@ -420,7 +913,7 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
               </div>
             ) : (
               <>
-                {sections.map((section) => (
+                {sections.map((section, sIdx) => (
                   <div key={section.id} className="section-editor">
                     <div className="section-drag-handle">
                       <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
@@ -456,6 +949,8 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
                             key={question.id}
                             question={question}
                             index={qIdx}
+                            sections={sections}
+                            sectionIndex={sIdx}
                             onTitleChange={(t) => handleQuestionTitleChange(section.id, question.id, t)}
                             onDelete={() => handleDeleteQuestion(section.id, question.id)}
                             onDuplicate={() => handleDuplicateQuestion(section.id, question.id)}
@@ -463,6 +958,12 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
                             onAddOption={() => handleAddOption(section.id, question.id)}
                             onDeleteOption={(optId) => handleDeleteOption(section.id, question.id, optId)}
                             onOptionTextChange={(optId, text) => handleOptionTextChange(section.id, question.id, optId, text)}
+                            onToggleConditionalLogic={() => handleToggleConditionalLogic(section.id, question.id)}
+                            onDestinationChange={(optId, dest) => handleDestinationChange(section.id, question.id, optId, dest)}
+                            onSetFollowUpTask={(optId, task) => handleSetFollowUpTask(section.id, question.id, optId, task)}
+                            onDeleteFollowUpTask={(optId) => handleDeleteFollowUpTask(section.id, question.id, optId)}
+                            onToggleIncludeInScoring={() => handleToggleIncludeInScoring(section.id, question.id)}
+                            onSetScoreValue={(optId, value) => handleSetScoreValue(section.id, question.id, optId, value)}
                           />
                         ))}
                         <button className="add-question-btn" onClick={() => handleAddQuestion(section.id)}>

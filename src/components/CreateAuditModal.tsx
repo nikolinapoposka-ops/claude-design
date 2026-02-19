@@ -3,9 +3,10 @@ import React from 'react';
 interface CreateAuditModalProps {
   onClose: () => void;
   onNavigateToTemplate: () => void;
+  onReuseTemplate: () => void;
 }
 
-const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigateToTemplate }) => {
+const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigateToTemplate, onReuseTemplate }) => {
   return (
     <div
       className="modal-overlay"
@@ -28,7 +29,7 @@ const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigate
         <p className="modal-subtitle">Choose how you want to get started</p>
 
         {/* Option 1 */}
-        <button className="modal-option" data-test-id="modal-option-reuse">
+        <button className="modal-option" data-test-id="modal-option-reuse" onClick={() => { onClose(); onReuseTemplate(); }}>
           <div className="modal-option-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="#1e282f" strokeWidth="2" width="26" height="26">
               <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>
@@ -37,8 +38,8 @@ const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigate
             </svg>
           </div>
           <div className="modal-option-body">
-            <h3>Reuse an existing audit</h3>
-            <p>Use a company-approved audit template and send it to stores or auditors.</p>
+            <h3>Send an audit</h3>
+            <p>Use an approved audit template and send it to stores or auditors.</p>
           </div>
           <svg className="modal-option-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
             <polyline points="9 18 15 12 9 6"></polyline>

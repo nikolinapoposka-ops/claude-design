@@ -1,38 +1,46 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface ProgressInfo {
   total: number;
   fraction: string;
   percentage: number;
-  auditorInitials: string[];
+  auditors?: { name: string; initials: string }[];
   moreCount?: number;
 }
 
 interface AuditCardProps {
   title: string;
   store?: string;
+  storeAssignee?: { name: string; initials: string };
   statusLabel?: string;
+  scheduledDate?: string;
   auditor?: { name: string; initials: string };
   progress?: ProgressInfo;
-  startDate: string;
-  dueDate: string;
+  startDate?: string;
+  dueDate?: string;
   category: string;
   bookmarked?: boolean;
+  onClick?: () => void;
 }
 
 const AuditCard: React.FC<AuditCardProps> = ({
   title,
   store,
+  storeAssignee,
   statusLabel,
+  scheduledDate,
   auditor,
   progress,
   startDate,
   dueDate,
   category,
   bookmarked,
+  onClick,
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <div className="audit-card">
+    <div className={`audit-card${onClick ? ' audit-card--clickable' : ''}`} onClick={onClick}>
 
       {/* Header: audit icon + bookmark */}
       <div className="card-header">
@@ -53,19 +61,38 @@ const AuditCard: React.FC<AuditCardProps> = ({
 
       {/* Store */}
       {store && (
-        <div className="card-row">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14" flexShrink={0}>
+        <div className="card-row" style={{ flexShrink: 0 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
             <circle cx="9" cy="7" r="4"></circle>
             <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
             <path d="M16 3.13a4 4 0 010 7.75"></path>
           </svg>
-          <span className="card-meta">{store}</span>
+          {storeAssignee ? (
+            <>
+              <span className="card-meta">→</span>
+              <div className="avatar-sm">{storeAssignee.initials}</div>
+              <span className="card-meta">{storeAssignee.name}</span>
+            </>
+          ) : (
+            <span className="card-meta">{store}</span>
+          )}
         </div>
       )}
 
       {/* Status badge */}
-      {statusLabel && (
+      {scheduledDate ? (
+        <div className="scheduled-status-block">
+          <span className="status-badge status-badge--scheduled">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" width="12" height="12">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Scheduled
+          </span>
+          <span className="scheduled-date-text">Scheduled for {scheduledDate}</span>
+        </div>
+      ) : statusLabel ? (
         <div>
           <span className="status-badge">
             <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" width="12" height="12">
@@ -75,16 +102,7 @@ const AuditCard: React.FC<AuditCardProps> = ({
             {statusLabel}
           </span>
         </div>
-      )}
-
-      {/* Auditor */}
-      {auditor && (
-        <div className="card-row">
-          <span className="card-label">Auditor</span>
-          <div className="avatar-sm">{auditor.initials}</div>
-          <span className="card-meta">{auditor.name}</span>
-        </div>
-      )}
+      ) : null}
 
       {/* Progress */}
       {progress && (
@@ -101,40 +119,86 @@ const AuditCard: React.FC<AuditCardProps> = ({
           <div className="progress-bar-track">
             <div className="progress-bar-fill" style={{ width: `${progress.percentage}%` }}></div>
           </div>
-          <div className="card-row">
-            <span className="card-label">Auditors</span>
-            <div className="avatar-group">
-              {progress.auditorInitials.map((initials, i) => (
-                <div key={i} className="avatar-sm">{initials}</div>
-              ))}
-              {progress.moreCount !== undefined && (
-                <div className="avatar-sm avatar-more">+{progress.moreCount}</div>
-              )}
+          {progress.auditors && progress.auditors.length > 0 && (
+            <div className="card-row">
+              <span className="card-label">Auditors</span>
+              <div className="avatar-group">
+                {progress.auditors.map((a, i) => (
+                  <div key={i} className="avatar-tooltip-wrap">
+                    <div className="avatar-sm" data-name={a.name}>{a.initials}</div>
+                    <span className="avatar-tooltip">{a.name}</span>
+                  </div>
+                ))}
+                {progress.moreCount !== undefined && (
+                  <div className="avatar-sm avatar-more">+{progress.moreCount}</div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+      )}
+
+      {/* Auditor */}
+      {auditor && (
+        <div className="card-row">
+          <span className="card-label">Auditor</span>
+          <div className="avatar-sm">{auditor.initials}</div>
+          <span className="card-meta">{auditor.name}</span>
         </div>
       )}
 
       {/* Dates */}
       <div className="card-dates">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-        <span className="card-meta">{startDate}</span>
-        <span className="card-meta">→</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 16 14"></polyline>
-        </svg>
-        <span className="card-meta">{dueDate}</span>
+        {startDate && (
+          <>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <span className="card-meta">{startDate}</span>
+            <span className="card-meta">→</span>
+          </>
+        )}
+        {dueDate && (
+          <>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span className="card-meta">{dueDate}</span>
+          </>
+        )}
       </div>
 
       {/* Footer */}
       <div className="card-footer">
-        <button className="card-more-btn">···</button>
+        <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+          {menuOpen && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 199 }}
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="card-dropdown card-dropdown--right">
+                <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
+                  Create a copy
+                </button>
+                <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
+                  Move to done
+                </button>
+                <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
+                  Notify
+                </button>
+                <button className="card-dropdown-item card-dropdown-item--danger" onClick={() => setMenuOpen(false)}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+          <button className="card-more-btn" onClick={() => setMenuOpen((o) => !o)}>···</button>
+        </div>
         <span className="category-tag">{category}</span>
       </div>
 
