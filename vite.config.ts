@@ -10,4 +10,10 @@ export default defineConfig({
       '@quinyx/ui': path.resolve(__dirname, './src/lib/quinyx-ui.tsx'),
     },
   },
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
 })
