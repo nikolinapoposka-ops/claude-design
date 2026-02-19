@@ -4906,6 +4906,7 @@ body {
 .store-submission-title-block {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 8px;
     margin-bottom: 20px;
 }
