@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { AuditInstance, AuditorAssignment } from '../App';
-import { useRole } from '../context/RoleContext';
+import { useRole, AREA_MANAGER_AUDITOR_ID } from '../context/RoleContext';
 
 interface Props {
   instance: AuditInstance;
@@ -157,10 +157,15 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
   };
 
   const visibleStores = useMemo(() => {
+    if (role === 'areaManager' && isAuditorsMode) {
+      // AM only sees the stores assigned to them — not other auditors' stores
+      const amAssignment = auditorAssignments.find((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID);
+      return amAssignment ? amAssignment.stores : [];
+    }
     if (!isAuditorsMode || auditorFilter === 'all') return stores;
     const assignment = auditorAssignments.find((a) => a.auditor.id === auditorFilter);
     return assignment ? assignment.stores : [];
-  }, [stores, isAuditorsMode, auditorFilter, auditorAssignments]);
+  }, [stores, isAuditorsMode, auditorFilter, auditorAssignments, role]);
 
   const regionGroups = useMemo(() => groupStores(visibleStores), [visibleStores]);
 
@@ -171,8 +176,12 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
       return next;
     });
 
-  const totalCount = stores.length;
-  const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  // AM sees only their own slice; HQ sees global totals
+  const totalCount = (role === 'areaManager' && isAuditorsMode) ? visibleStores.length : stores.length;
+  const displayCompletedCount = (role === 'areaManager' && isAuditorsMode)
+    ? visibleStores.filter((s) => getStatus(s) === 'completed').length
+    : completedCount;
+  const progressPct = totalCount > 0 ? Math.round((displayCompletedCount / totalCount) * 100) : 0;
 
   const regionCompletedCount = (regionStores: string[]) =>
     regionStores.filter((s) => getStatus(s) === 'completed').length;
@@ -197,7 +206,7 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
               <path d="M16 3.13a4 4 0 010 7.75"></path>
             </svg>
             <span className="audit-detail-progress-text">
-              {totalCount} · {completedCount}/{totalCount} completed · {progressPct}%
+              {totalCount} · {displayCompletedCount}/{totalCount} completed · {progressPct}%
             </span>
           </div>
           <div className="audit-detail-progress-bar-track">
@@ -226,7 +235,21 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
 
           {/* Auditor display — Mode B only */}
           {isAuditorsMode && (
-            auditorAssignments.length === 1 ? (
+            role === 'areaManager' ? (
+              /* AM sees only themselves — same single-auditor layout, no dropdown */
+              (() => {
+                const amAuditor = auditorAssignments.find((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID)?.auditor;
+                return amAuditor ? (
+                  <div className="audit-detail-auditor-single">
+                    <span className="audit-detail-auditor-single-label">Auditor</span>
+                    <div className="audit-detail-auditor-single-row">
+                      <div className="avatar-sm">{amAuditor.initials}</div>
+                      <span className="audit-detail-auditor-single-name">{amAuditor.name}</span>
+                    </div>
+                  </div>
+                ) : null;
+              })()
+            ) : auditorAssignments.length === 1 ? (
               /* Single auditor: label above, avatar + name below */
               <div className="audit-detail-auditor-single">
                 <span className="audit-detail-auditor-single-label">Auditor</span>

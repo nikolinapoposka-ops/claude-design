@@ -90,6 +90,14 @@ const formatCardDate = (dateStr: string) => {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// Returns a version of the instance scoped to only the AM's assigned stores/auditor
+const projectForAM = (inst: AuditInstance): AuditInstance => {
+  if (inst.audience !== 'auditors' || !inst.auditorAssignments) return inst;
+  const amAssignment = inst.auditorAssignments.find((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID);
+  if (!amAssignment) return inst;
+  return { ...inst, stores: amAssignment.stores, auditors: [amAssignment.auditor], completedCount: 0 };
+};
+
 const toAuditCardProps = (inst: AuditInstance) => {
   const base = {
     id: inst.id,
@@ -227,16 +235,16 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
 
   // Audit instance filtering
   // Audits where Emily is assigned as an auditor (she's a recipient)
-  const emilyAudits = role === 'areaManager'
-    ? auditInstances.filter((i) => i.auditorAssignments?.some((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID))
-    : [];
-
-  // All active (sent/scheduled) audits — Area Manager sees these as sender too
-  const activeInstances = auditInstances.filter((i) => i.status === 'sent' || i.status === 'scheduled');
-
-  // Deduped union of sent audits + audits where Emily is an assigned auditor
+  // Area Manager sees:
+  //   - store-audience audits (sent/scheduled, she may be the sender)
+  //   - auditor-audience audits only where she is an assigned auditor
   const areaManagerOverviewAudits = role === 'areaManager'
-    ? [...new Map([...activeInstances, ...emilyAudits].map((i) => [i.id, i])).values()]
+    ? auditInstances.filter((i) => {
+        if (i.status !== 'sent' && i.status !== 'scheduled') return false;
+        if (i.audience === 'stores') return true;
+        if (i.audience === 'auditors') return i.auditorAssignments?.some((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID) ?? false;
+        return false;
+      })
     : [];
 
   const storeAudits = role === 'store'
@@ -249,7 +257,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     const drafts    = auditInstances.filter((i) => i.status === 'draft');
     switch (auditCollectionFilter) {
       case 'overview':
-        if (role === 'areaManager') return [...areaManagerOverviewAudits.map(toAuditCardProps), ...sampleAuditCards];
+        if (role === 'areaManager') return [...areaManagerOverviewAudits.map((i) => toAuditCardProps(projectForAM(i))), ...sampleAuditCards];
         if (role === 'store')       return [...storeAudits.map(toAuditCardProps), ...sampleAuditCards];
         return [...sent.map(toAuditCardProps), ...sampleAuditCards];
       case 'sent':          return sent.map(toAuditCardProps);
@@ -257,12 +265,12 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
       case 'audit-drafts':  return drafts.map(toAuditCardProps);
       case 'all':           return [...auditInstances.map(toAuditCardProps), ...sampleAuditCards];
       case 'assigned-to-me':
-        if (role === 'areaManager') return emilyAudits.map(toAuditCardProps);
+        if (role === 'areaManager') return areaManagerOverviewAudits.filter((i) => i.audience === 'auditors').map((i) => toAuditCardProps(projectForAM(i)));
         if (role === 'store')       return storeAudits.map(toAuditCardProps);
         return sampleAuditCards;
       default:              return sampleAuditCards;
     }
-  })();
+  })() as Array<ReturnType<typeof toAuditCardProps> | (typeof sampleAuditCards)[number]>;
 
   // Audit collection counts (show 99+ for mock items, real counts for instances)
   const auditCountsMap: Record<AuditCollectionFilter, number> = {
@@ -271,7 +279,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
       role === 'store'       ? storeAudits.length + sampleAuditCards.length :
       auditInstances.filter((i) => i.status === 'sent').length + sampleAuditCards.length,
     'assigned-to-me':
-      role === 'areaManager' ? emilyAudits.length :
+      role === 'areaManager' ? areaManagerOverviewAudits.filter((i) => i.audience === 'auditors').length :
       role === 'store'       ? storeAudits.length :
       sampleAuditCards.length,
     'awaiting-approval': 0,

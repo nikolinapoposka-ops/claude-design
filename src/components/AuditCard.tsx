@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Badge, Avatar } from '@quinyx/ui';
-import { useRole, STORE_NAME } from '../context/RoleContext';
+import { useRole, STORE_NAME, AREA_MANAGER_NAME } from '../context/RoleContext';
 
 interface ProgressInfo {
   total: number;
@@ -128,13 +128,16 @@ const AuditCard: React.FC<AuditCardProps> = ({
               <div className="card-row">
                 <span className="card-label">Auditors</span>
                 <div className="avatar-group">
-                  {progress.auditors.map((a, i) => (
+                  {(role === 'areaManager'
+                    ? progress.auditors.filter((a) => a.name === AREA_MANAGER_NAME)
+                    : progress.auditors
+                  ).map((a, i) => (
                     <div key={i} className="avatar-tooltip-wrap">
                       <Avatar name={a.name} size="xs" hasBorder />
                       <span className="avatar-tooltip">{a.name}</span>
                     </div>
                   ))}
-                  {progress.moreCount !== undefined && (
+                  {role !== 'areaManager' && progress.moreCount !== undefined && (
                     <div className="avatar-sm avatar-more">+{progress.moreCount}</div>
                   )}
                 </div>
