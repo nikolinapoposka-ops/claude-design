@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node -p \"require('react/package.json').version\" && node -p \"require('react-dom/package.json').version\" && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "setup": "./infra/local_setup.sh && npx google-artifactregistry-auth"
