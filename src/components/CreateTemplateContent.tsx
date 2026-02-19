@@ -221,7 +221,7 @@ const createQuestion = (): Question => ({
   title: 'Untitled question',
   options: [
     { id: `opt-${Date.now()}-1`, text: 'Option 1' },
-    { id: `opt-${Date.now()}-2`, text: 'Option 1' },
+    { id: `opt-${Date.now()}-2`, text: 'Option 2' },
   ],
   required: false,
   includeInScoring: false,
@@ -518,17 +518,14 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
                 <span className="scoring-include-label">Include in scoring</span>
                 <span className="scoring-include-desc">When enabled, this question contributes to the final audit score</span>
               </div>
-              <button
-                className={`scoring-toggle${question.includeInScoring ? ' scoring-toggle--on' : ''}`}
-                onClick={(e) => { e.stopPropagation(); onToggleIncludeInScoring(); }}
-                aria-label="Toggle include in scoring"
-              >
-                {question.includeInScoring && (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" width="14" height="14">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                )}
-              </button>
+              <label className="toggle-switch toggle-switch--lg" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={question.includeInScoring}
+                  onChange={onToggleIncludeInScoring}
+                />
+                <span className="toggle-slider"></span>
+              </label>
             </div>
             {question.includeInScoring && (
               <div className="scoring-values-section">

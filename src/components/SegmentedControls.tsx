@@ -19,7 +19,7 @@ interface SegmentedControlsProps {
   defaultSelected?: number;
   size?: 's' | 'm';
   border?: boolean;
-  children: React.ReactElement<SegmentedChildProps>[];
+  children: React.ReactElement<SegmentedChildProps> | React.ReactElement<SegmentedChildProps>[];
 }
 
 const SegmentedControlsButton: React.FC<SegmentedChildProps> = ({

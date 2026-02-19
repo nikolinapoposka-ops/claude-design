@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { AuditInstance, AuditorAssignment } from '../App';
+import { useRole } from '../context/RoleContext';
 
 interface Props {
   instance: AuditInstance;
@@ -94,7 +95,42 @@ function EntryActions() {
   );
 }
 
+function RecipientEntryMenu() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setOpen(false)} />
+          <div className="card-dropdown card-dropdown--right" style={{ zIndex: 200 }}>
+            <button className="card-dropdown-item" onClick={() => setOpen(false)}>
+              Upload
+            </button>
+            <button className="card-dropdown-item" onClick={() => setOpen(false)}>
+              Comment
+            </button>
+            <button className="card-dropdown-item" onClick={() => setOpen(false)}>
+              Notify
+            </button>
+            <button className="card-dropdown-item card-dropdown-item--danger" onClick={() => setOpen(false)}>
+              Remove
+            </button>
+          </div>
+        </>
+      )}
+      <button className="card-more-btn" aria-label="More options" onClick={() => setOpen((o) => !o)}>
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden="true">
+          <circle cx="12" cy="5" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="12" cy="19" r="1.5" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore }) => {
+  const { role } = useRole();
   const isAuditorsMode = instance.audience === 'auditors';
   const stores = instance.stores;
   const completedCount = instance.completedCount;
@@ -342,7 +378,48 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                     const isCompleted = status === 'completed';
 
                     if (isAuditorsMode) {
-                      // Mode B: flat store row, no child rows
+                      if (role === 'areaManager') {
+                        // Recipient view: flat row matching Mode B but with action button + 3-dot menu
+                        const actionButton = status === 'completed' ? (
+                          <button className="btn btn--outlined btn--pill btn--sm" onClick={(e) => e.stopPropagation()}>
+                            View results
+                          </button>
+                        ) : status === 'in-progress' ? (
+                          <button className="btn btn--filled btn--pill btn--sm" onClick={(e) => e.stopPropagation()}>
+                            Continue
+                          </button>
+                        ) : status === 'not-started' ? (
+                          <button className="btn btn--filled btn--pill btn--sm" onClick={(e) => e.stopPropagation()}>
+                            Start
+                          </button>
+                        ) : null; // awaiting-approval, changes-needed, cancelled → status only
+
+                        return (
+                          <div
+                            key={storeName}
+                            className={`breakdown-store-group breakdown-store-group--${isCompleted ? 'completed' : 'not-started'}`}
+                          >
+                            <div
+                              className="breakdown-entry-row breakdown-entry-row--flat breakdown-entry-row--clickable"
+                              onClick={() => onViewStore(storeName, status)}
+                            >
+                              <span className="breakdown-store-name">{storeName}</span>
+                              <StatusPill status={status} />
+                              {isCompleted && <span className="breakdown-score">Score <strong>78%</strong></span>}
+                              <span className="breakdown-date-text">
+                                {isCompleted
+                                  ? <>Started 11 Nov &nbsp; Submitted <strong>11 Nov</strong></>
+                                  : <>Send out 11 Nov</>
+                                }
+                              </span>
+                              {actionButton}
+                              <RecipientEntryMenu />
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Mode B: flat store row, no child rows (HQ sender view)
                       return (
                         <div
                           key={storeName}
@@ -379,18 +456,23 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                       >
                         {isPickedUp ? (
                           <>
-                            {/* Store header row — name only, no chevron */}
-                            <div className="breakdown-store-row breakdown-store-row--no-toggle">
+                            {/* Store header row — owner of the audit */}
+                            <div className="breakdown-store-row breakdown-store-row--no-toggle breakdown-store-row--owner">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" style={{ flexShrink: 0, color: 'var(--qui-color-text-secondary)' }}>
+                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                              </svg>
                               <span
                                 className="breakdown-store-name breakdown-store-name--link"
                                 onClick={() => onViewStore(storeName, status)}
                               >{storeName}</span>
                             </div>
-                            {/* Assignee child row */}
+                            {/* Person row — execution context, indented under store */}
                             <div
-                              className="breakdown-entry-row breakdown-entry-row--clickable"
+                              className="breakdown-entry-row breakdown-entry-row--clickable breakdown-entry-row--child"
                               onClick={() => onViewStore(storeName, status)}
                             >
+                              <span className="breakdown-picked-up-label">Picked up by</span>
                               <div className="avatar-sm breakdown-avatar">{MOCK_ASSIGNEE.initials}</div>
                               <span className="breakdown-entry-name">{MOCK_ASSIGNEE.name}</span>
                               <StatusPill status={status} />
@@ -430,7 +512,9 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
 
       {/* Bottom bar */}
       <div className="audit-detail-bottom-bar">
-        <button className="btn btn--outlined btn--pill btn--sm" onClick={onViewDetails}>View details</button>
+        {role !== 'store' && (
+          <button className="btn btn--outlined btn--pill btn--sm" onClick={onViewDetails}>View details</button>
+        )}
       </div>
     </div>
   );

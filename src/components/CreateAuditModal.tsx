@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRole } from '../context/RoleContext';
 
 interface CreateAuditModalProps {
   onClose: () => void;
@@ -7,6 +8,8 @@ interface CreateAuditModalProps {
 }
 
 const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigateToTemplate, onReuseTemplate }) => {
+  const { role } = useRole();
+
   return (
     <div
       className="modal-overlay"
@@ -46,29 +49,31 @@ const CreateAuditModal: React.FC<CreateAuditModalProps> = ({ onClose, onNavigate
           </svg>
         </button>
 
-        {/* OR divider */}
-        <div className="modal-divider">OR</div>
-
-        {/* Option 2 */}
-        <button
-          className="modal-option"
-          data-test-id="modal-option-new-template"
-          onClick={() => { onClose(); onNavigateToTemplate(); }}
-        >
-          <div className="modal-option-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#1e282f" strokeWidth="2" width="26" height="26">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-          </div>
-          <div className="modal-option-body">
-            <h3>Create a new audit template</h3>
-            <p>Design a reusable audit template with your own sections, questions, logic, and scoring.</p>
-          </div>
-          <svg className="modal-option-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </button>
+        {/* OR divider + Create template option — HQ only */}
+        {role === 'hq' && (
+          <>
+            <div className="modal-divider">OR</div>
+            <button
+              className="modal-option"
+              data-test-id="modal-option-new-template"
+              onClick={() => { onClose(); onNavigateToTemplate(); }}
+            >
+              <div className="modal-option-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1e282f" strokeWidth="2" width="26" height="26">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </div>
+              <div className="modal-option-body">
+                <h3>Create a new audit template</h3>
+                <p>Design a reusable audit template with your own sections, questions, logic, and scoring.</p>
+              </div>
+              <svg className="modal-option-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </>
+        )}
 
       </div>
     </div>

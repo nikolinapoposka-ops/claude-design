@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
+import { Badge } from '@quinyx/ui';
 import type { Template } from './TemplateCard';
 
-const CATEGORY_COLORS: Record<string, { bg: string }> = {
-  Branding:    { bg: '#b23d59' },
-  Merchandise: { bg: '#1565c0' },
-  Security:    { bg: '#004851' },
-  Safety:      { bg: '#e65100' },
-  Operations:  { bg: '#2e7d32' },
+const CATEGORY_COLORS: Record<string, string> = {
+  Branding:    '#b23d59',
+  Merchandise: '#1565c0',
+  Security:    '#004851',
+  Safety:      '#e65100',
+  Operations:  '#2e7d32',
 };
-const getCategoryStyle = (cat: string) => ({
-  backgroundColor: (CATEGORY_COLORS[cat] ?? { bg: '#004851' }).bg,
-  color: 'white' as const,
-});
 
 const MOCK_SECTIONS = [
   {
@@ -108,7 +105,7 @@ const TemplateOverviewContent: React.FC<TemplateOverviewContentProps> = ({ templ
                 Priority
               </span>
             )}
-            <span className="detail-badge detail-badge--category" style={getCategoryStyle(template.category)}>{template.category}</span>
+            <Badge label={template.category} customColor={CATEGORY_COLORS[template.category] ?? '#004851'} size="small" />
           </div>
 
           <h1 className="detail-title">{template.title}</h1>

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
+import { Badge } from '@quinyx/ui';
 import type { Template } from './TemplateCard';
 import ArchiveConfirmModal from './ArchiveConfirmModal';
+import { useRole } from '../context/RoleContext';
 
-const CATEGORY_COLORS: Record<string, { bg: string }> = {
-  Branding:    { bg: '#b23d59' },
-  Merchandise: { bg: '#1565c0' },
-  Security:    { bg: '#004851' },
-  Safety:      { bg: '#e65100' },
-  Operations:  { bg: '#2e7d32' },
+const CATEGORY_COLORS: Record<string, string> = {
+  Branding:    '#b23d59',
+  Merchandise: '#1565c0',
+  Security:    '#004851',
+  Safety:      '#e65100',
+  Operations:  '#2e7d32',
 };
-const getCategoryStyle = (cat: string) => ({ backgroundColor: (CATEGORY_COLORS[cat] ?? { bg: '#004851' }).bg, color: 'white' as const });
 
 interface TemplateDetailContentProps {
   template: Template;
@@ -67,6 +68,7 @@ const MOCK_SECTIONS = [
 ];
 
 const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template, onEdit, onArchive }) => {
+  const { role } = useRole();
   const [moreInfoOpen, setMoreInfoOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([1]));
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -113,7 +115,7 @@ const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template,
                 Priority
               </span>
             )}
-            <span className="detail-badge detail-badge--category" style={getCategoryStyle(template.category)}>{template.category}</span>
+            <Badge label={template.category} customColor={CATEGORY_COLORS[template.category] ?? '#004851'} size="small" />
             {isArchived && (
               <span className="detail-archived-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="13" height="13" aria-hidden="true">
@@ -287,14 +289,16 @@ const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template,
           </div>
         ) : (
           <>
-            <button className="btn btn--outlined btn--pill" onClick={() => setEditModalOpen(true)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
-              Edit
-            </button>
-            <button className="btn btn--filled btn--pill">
+            {role === 'hq' && (
+              <button className="btn btn--outlined btn--pill" onClick={() => setEditModalOpen(true)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Edit
+              </button>
+            )}
+            <button className="btn btn--outlined btn--pill">
               Use this template
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
                 <polyline points="9 18 15 12 9 6"></polyline>
@@ -318,12 +322,14 @@ const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template,
                     <button className="card-dropdown-item" onClick={() => setDetailMenuOpen(false)}>
                       Create audit from template
                     </button>
-                    <button
-                      className="card-dropdown-item card-dropdown-item--danger"
-                      onClick={() => { setDetailMenuOpen(false); setShowArchiveModal(true); }}
-                    >
-                      Archive
-                    </button>
+                    {role === 'hq' && (
+                      <button
+                        className="card-dropdown-item card-dropdown-item--danger"
+                        onClick={() => { setDetailMenuOpen(false); setShowArchiveModal(true); }}
+                      >
+                        Archive
+                      </button>
+                    )}
                   </div>
                 </>
               )}

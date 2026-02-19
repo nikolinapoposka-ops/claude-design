@@ -4,6 +4,7 @@ import AuditCard from './AuditCard';
 import TemplateCard from './TemplateCard';
 import type { Template } from './TemplateCard';
 import type { AuditInstance } from '../App';
+import { useRole, AREA_MANAGER_AUDITOR_ID, STORE_NAME } from '../context/RoleContext';
 
 const sampleAuditCards = [
   {
@@ -195,6 +196,7 @@ interface AuditContentProps {
 }
 
 const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates, onArchiveTemplate, onDeleteTemplate, onViewTemplate, collectionFilter, onCollectionFilterChange, auditInstances, auditCollectionFilter, onAuditCollectionFilterChange, onViewAudit }) => {
+  const { role } = useRole();
   const [selectedTab, setSelectedTab] = useState(tab);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -224,24 +226,54 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
   const isTemplates = selectedTab === 1;
 
   // Audit instance filtering
+  // Audits where Emily is assigned as an auditor (she's a recipient)
+  const emilyAudits = role === 'areaManager'
+    ? auditInstances.filter((i) => i.auditorAssignments?.some((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID))
+    : [];
+
+  // All active (sent/scheduled) audits — Area Manager sees these as sender too
+  const activeInstances = auditInstances.filter((i) => i.status === 'sent' || i.status === 'scheduled');
+
+  // Deduped union of sent audits + audits where Emily is an assigned auditor
+  const areaManagerOverviewAudits = role === 'areaManager'
+    ? [...new Map([...activeInstances, ...emilyAudits].map((i) => [i.id, i])).values()]
+    : [];
+
+  const storeAudits = role === 'store'
+    ? auditInstances.filter((i) => i.stores.includes(STORE_NAME))
+    : [];
+
   const filteredAuditCards = (() => {
     const sent      = auditInstances.filter((i) => i.status === 'sent');
     const scheduled = auditInstances.filter((i) => i.status === 'scheduled');
     const drafts    = auditInstances.filter((i) => i.status === 'draft');
     switch (auditCollectionFilter) {
-      case 'overview':      return [...sent.map(toAuditCardProps), ...sampleAuditCards];
+      case 'overview':
+        if (role === 'areaManager') return [...areaManagerOverviewAudits.map(toAuditCardProps), ...sampleAuditCards];
+        if (role === 'store')       return [...storeAudits.map(toAuditCardProps), ...sampleAuditCards];
+        return [...sent.map(toAuditCardProps), ...sampleAuditCards];
       case 'sent':          return sent.map(toAuditCardProps);
       case 'scheduled':     return scheduled.map(toAuditCardProps);
       case 'audit-drafts':  return drafts.map(toAuditCardProps);
       case 'all':           return [...auditInstances.map(toAuditCardProps), ...sampleAuditCards];
+      case 'assigned-to-me':
+        if (role === 'areaManager') return emilyAudits.map(toAuditCardProps);
+        if (role === 'store')       return storeAudits.map(toAuditCardProps);
+        return sampleAuditCards;
       default:              return sampleAuditCards;
     }
   })();
 
   // Audit collection counts (show 99+ for mock items, real counts for instances)
   const auditCountsMap: Record<AuditCollectionFilter, number> = {
-    'overview':        auditInstances.filter((i) => i.status === 'sent').length + sampleAuditCards.length,
-    'assigned-to-me':  sampleAuditCards.length,
+    'overview':
+      role === 'areaManager' ? areaManagerOverviewAudits.length + sampleAuditCards.length :
+      role === 'store'       ? storeAudits.length + sampleAuditCards.length :
+      auditInstances.filter((i) => i.status === 'sent').length + sampleAuditCards.length,
+    'assigned-to-me':
+      role === 'areaManager' ? emilyAudits.length :
+      role === 'store'       ? storeAudits.length :
+      sampleAuditCards.length,
     'awaiting-approval': 0,
     'done':            0,
     'sent':            auditInstances.filter((i) => i.status === 'sent').length,
@@ -329,25 +361,28 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
         </>
       )}
 
-      {/* Row 1: Segmented controls */}
-      <SegmentedControls
-        aria-label="View mode"
-        data-test-id="segmented-audit-view"
-        defaultSelected={tab}
-        size="m"
-        border
-      >
-        <SegmentedControls.Button
-          text="Audits"
-          data-test-id="segmented-btn-audits"
-          onClick={handleTabChange}
-        />
-        <SegmentedControls.Button
-          text="Templates"
-          data-test-id="segmented-btn-templates"
-          onClick={handleTabChange}
-        />
-      </SegmentedControls>
+      {/* Row 1: Segmented controls — HQ only (Audits + Templates) */}
+      {role === 'hq' && (
+        <SegmentedControls
+          key={tab}
+          aria-label="View mode"
+          data-test-id="segmented-audit-view"
+          defaultSelected={tab}
+          size="s"
+          border
+        >
+          <SegmentedControls.Button
+            text="Audits"
+            data-test-id="segmented-btn-audits"
+            onClick={handleTabChange}
+          />
+          <SegmentedControls.Button
+            text="Templates"
+            data-test-id="segmented-btn-templates"
+            onClick={handleTabChange}
+          />
+        </SegmentedControls>
+      )}
 
       {/* Row 2: List header */}
       <div className="audit-list-header">

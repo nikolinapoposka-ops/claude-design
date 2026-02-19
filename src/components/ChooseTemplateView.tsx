@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
+import { Badge } from '@quinyx/ui';
 import type { Template } from './TemplateCard';
 
-const CATEGORY_COLORS: Record<string, { bg: string }> = {
-  Branding:    { bg: '#b23d59' },
-  Merchandise: { bg: '#1565c0' },
-  Security:    { bg: '#004851' },
-  Safety:      { bg: '#e65100' },
-  Operations:  { bg: '#2e7d32' },
+const CATEGORY_COLORS: Record<string, string> = {
+  Branding:    '#b23d59',
+  Merchandise: '#1565c0',
+  Security:    '#004851',
+  Safety:      '#e65100',
+  Operations:  '#2e7d32',
 };
-const getCategoryStyle = (cat: string) => ({
-  backgroundColor: (CATEGORY_COLORS[cat] ?? { bg: '#004851' }).bg,
-  color: 'white' as const,
-});
 
 interface ChooseTemplateViewProps {
   templates: Template[];
@@ -60,7 +57,7 @@ const ChooseTemplateView: React.FC<ChooseTemplateViewProps> = ({ templates, onSe
             <div className="choose-template-row-body">
               <div className="choose-template-row-title-row">
                 <span className="choose-template-row-title">{t.title}</span>
-                <span className="category-tag" style={getCategoryStyle(t.category)}>{t.category}</span>
+                <Badge label={t.category} customColor={CATEGORY_COLORS[t.category] ?? '#004851'} size="small" />
               </div>
               {t.description && (
                 <p className="choose-template-row-desc">{t.description}</p>

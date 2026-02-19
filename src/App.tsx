@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
+import { useRole, STORE_NAME } from './context/RoleContext';
 import Navbar from './components/Navbar';
 import SecondaryNav from './components/SecondaryNav';
 import MainContent from './components/MainContent';
@@ -81,8 +82,24 @@ function formatDate(date: Date): string {
 
 function AppContent() {
   const createToast = useToast();
+  const { role } = useRole();
   const [view, setView] = useState<View>('list');
   const [activeTab, setActiveTab] = useState(0);
+
+  useEffect(() => {
+    setView('list');
+    if (role === 'hq') {
+      setActiveTab(0);
+      setAuditCollectionFilter('overview');
+    } else if (role === 'areaManager') {
+      setActiveTab(0);
+      setAuditCollectionFilter('overview');
+    } else {
+      setActiveTab(0);
+      setAuditCollectionFilter('overview');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
   const [reusableTemplates, setReusableTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
   const [draftTitle, setDraftTitle] = useState(DEFAULT_DRAFT_TITLE);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -279,7 +296,8 @@ function AppContent() {
   };
 
   const handleBackFromReviewAndSend = () => {
-    if (selectedAuditTemplate) {
+    if (!selectedAuditInstance && selectedAuditTemplate) {
+      // Coming from template-overview flow — save as draft
       const draft: AuditInstance = {
         id: `audit-draft-${Date.now()}`,
         title: selectedAuditTemplate.title,
@@ -295,6 +313,8 @@ function AppContent() {
       };
       setAuditInstances((prev) => [draft, ...prev]);
     }
+    // If selectedAuditInstance is set we came from a draft card — it already exists, nothing to create
+    setSelectedAuditInstance(null);
     setSelectedAuditTemplate(null);
     setAuditorAssignments([]);
     setSelfAuditStores([]);
@@ -324,7 +344,35 @@ function AppContent() {
 
   const handleViewAudit = (instance: AuditInstance) => {
     setSelectedAuditInstance(instance);
-    setView('audit-detail');
+    if (instance.status === 'draft') {
+      const draftTemplate: Template = {
+        id: instance.id,
+        title: instance.title,
+        category: instance.category,
+        sections: instance.sectionData?.length ?? 0,
+        questions: instance.sectionData?.reduce((sum, s) => sum + s.questions.length, 0) ?? 0,
+        sectionData: instance.sectionData,
+        description: instance.description,
+        isPriority: instance.isPriority,
+        createdBy: '',
+        publishedOn: '',
+        status: 'library',
+      };
+      setSelectedAuditTemplate(draftTemplate);
+      if (instance.auditorAssignments && instance.auditorAssignments.length > 0) {
+        setAuditorAssignments(instance.auditorAssignments);
+      } else if (instance.audience === 'stores' && instance.stores.length > 0) {
+        setSelfAuditStores(instance.stores);
+      }
+      setView('review-and-send');
+    } else if (role === 'store') {
+      // Store sees their own audit directly — no breakdown view
+      setSelectedStoreName(STORE_NAME);
+      setSelectedStoreStatus('not-started');
+      setView('store-submission');
+    } else {
+      setView('audit-detail');
+    }
   };
 
   const handleBackFromAuditDetail = () => {
@@ -388,8 +436,14 @@ function AppContent() {
         recurringDate: data.recurringDate || '',
         message: data.message || '',
       };
-      setAuditInstances((prev) => [instance, ...prev]);
+      if (selectedAuditInstance) {
+        // Replace the existing draft with the new sent/scheduled instance
+        setAuditInstances((prev) => [instance, ...prev.filter((i) => i.id !== selectedAuditInstance.id)]);
+      } else {
+        setAuditInstances((prev) => [instance, ...prev]);
+      }
     }
+    setSelectedAuditInstance(null);
     setAuditorAssignments([]);
     setSelfAuditStores([]);
     setSelectedAuditTemplate(null);
@@ -516,7 +570,7 @@ function AppContent() {
         </>
       ) : view === 'store-submission' ? (
         <>
-          <CreateTemplateNav onBack={() => setView('audit-detail')} />
+          <CreateTemplateNav onBack={() => setView(role === 'store' ? 'list' : 'audit-detail')} />
           {selectedAuditInstance && (
             <StoreSubmissionView instance={selectedAuditInstance} storeName={selectedStoreName} storeStatus={selectedStoreStatus} />
           )}

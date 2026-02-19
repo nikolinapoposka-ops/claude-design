@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Tabs from './Tabs';
 import CreateAuditModal from './CreateAuditModal';
+import { useRole } from '../context/RoleContext';
 
 const dropdownItems = [
   {
@@ -93,6 +94,7 @@ interface SecondaryNavProps {
 }
 
 const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate }) => {
+  const { role } = useRole();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -225,8 +227,8 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           </svg>
         </button>
 
-        {/* Plus button with dropdown */}
-        <div className="dropdown-wrapper" ref={dropdownRef}>
+        {/* Plus button with dropdown — hidden for store */}
+        {role !== 'store' && <div className="dropdown-wrapper" ref={dropdownRef}>
           <button
             className="tool-button"
             data-test-id="btn-create"
@@ -247,7 +249,13 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
                   role="menuitem"
                   onClick={() => {
                     setDropdownOpen(false);
-                    if (item.key === 'audit') setAuditModalOpen(true);
+                    if (item.key === 'audit') {
+                      if (role === 'areaManager') {
+                        onReuseTemplate();
+                      } else {
+                        setAuditModalOpen(true);
+                      }
+                    }
                   }}
                 >
                   {item.icon}
@@ -256,7 +264,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
               ))}
             </div>
           )}
-        </div>
+        </div>}
 
         <button className="tool-button notification-button">
           <svg className="icon-sm" viewBox="0 0 24 24" fill="none" stroke="#42515b" strokeWidth="2">

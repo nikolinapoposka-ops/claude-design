@@ -5,10 +5,80 @@
     box-sizing: border-box;
 }
 
+/* ── Dev Role Switcher ───────────────────────────────────── */
+.role-switcher {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #d0dae0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
+    user-select: none;
+}
+
+.role-switcher-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8fa5b2;
+    line-height: 1;
+}
+
+.role-switcher-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.role-switcher-btn {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid #d0dae0;
+    background: transparent;
+    color: #465d6d;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.role-switcher-btn:hover {
+    background: #f0f4f6;
+    border-color: #b0c4ce;
+}
+
+.role-switcher-btn--active {
+    background: var(--qui-color-primary-main, #007a8c);
+    border-color: var(--qui-color-primary-main, #007a8c);
+    color: #ffffff;
+}
+
+.role-switcher-btn--active:hover {
+    background: var(--qui-color-primary-main, #007a8c);
+}
+
+.role-switcher-persona {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--qui-color-primary-main, #007a8c);
+    text-align: right;
+}
+
 body {
     font-family: 'Nunito', sans-serif;
-    background-color: var(--qui-color-surface-contrast-low);
-    color: var(--qui-color-surface-on-surface);
+    background-color: var(--qui-color-surface-contrast-low, #f3f5f7);
+    color: var(--qui-color-surface-on-surface, #1e282f);
 }
 
 /* Navbar Styles */
@@ -362,7 +432,7 @@ body {
 
 /* ── Audit Card ── */
 .audit-card {
-    background: white;
+    background: var(--qui-color-surface-main, #ffffff);
     border-radius: 12px;
     border: 1px solid var(--qui-color-surface-contrast-high);
     border-left: 4px solid var(--qui-color-secondary-main);
@@ -572,20 +642,6 @@ body {
 
 .card-more-btn:hover {
     background-color: var(--qui-color-surface-contrast-low);
-}
-
-.category-tag {
-    display: inline-flex;
-    align-items: center;
-    background-color: var(--qui-color-secondary-main);
-    color: var(--qui-color-secondary-on-main);
-    border: none;
-    font-family: 'Nunito', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 999px;
-    white-space: nowrap;
 }
 
 /* ── Buttons (design system) ── */
@@ -2000,6 +2056,22 @@ body {
     transform: translateX(16px);
 }
 
+.toggle-switch--lg {
+    width: 48px;
+    height: 28px;
+}
+
+.toggle-switch--lg .toggle-slider::before {
+    width: 20px;
+    height: 20px;
+    top: 4px;
+    left: 4px;
+}
+
+.toggle-switch--lg input:checked + .toggle-slider::before {
+    transform: translateX(20px);
+}
+
 .question-scoring-row {
     display: flex;
     align-items: center;
@@ -2443,11 +2515,6 @@ body {
 .detail-badge--priority {
     background-color: var(--qui-color-danger-alt);
     color: var(--qui-color-danger-mid);
-}
-
-.detail-badge--category {
-    background-color: var(--qui-color-primary-main);
-    color: white;
 }
 
 .detail-title {
@@ -5234,6 +5301,36 @@ body {
     background-color: transparent;
 }
 
+/* Store owner header (Mode A — audit claimed, store is the container) */
+.breakdown-store-row--owner {
+    background: var(--qui-color-surface-contrast-low);
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.breakdown-store-row--owner .breakdown-store-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface, #1a2936);
+}
+
+/* Person row indented under the store owner header */
+.breakdown-entry-row--child {
+    padding-left: 40px;
+    border-top: none;
+}
+
+/* "Picked up by" micro-label before the person's avatar */
+.breakdown-picked-up-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--qui-color-text-secondary, #8fa5b2);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 2px;
+}
+
 /* Avatar tooltip */
 .avatar-tooltip-wrap {
     position: relative;
@@ -5261,4 +5358,102 @@ body {
 
 .avatar-tooltip-wrap:hover .avatar-tooltip {
     opacity: 1;
+}
+
+/* ── Scoring expanded section ──────────────────────────────── */
+
+.scoring-disabled-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--qui-color-surface-contrast-high);
+    color: var(--qui-color-surface-on-surface);
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.scoring-expanded-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0 8px;
+}
+
+.scoring-include-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.scoring-include-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.scoring-include-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--qui-color-surface-on-surface);
+}
+
+.scoring-include-desc {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface-alt);
+}
+
+.scoring-values-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scoring-values-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--qui-color-surface-on-surface);
+}
+
+.scoring-values-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    border: 1px solid var(--qui-color-surface-contrast-high);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.scoring-value-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.scoring-value-option-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface-alt);
+}
+
+.scoring-value-input {
+    border: 1px solid var(--qui-color-surface-contrast-high);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+    background: #fff;
+}
+
+.scoring-value-input:focus {
+    border-color: var(--qui-color-primary-main);
 }

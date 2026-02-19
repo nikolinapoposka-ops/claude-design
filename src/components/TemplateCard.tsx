@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
+import { Badge } from '@quinyx/ui';
 import ArchiveConfirmModal from './ArchiveConfirmModal';
 
-const CATEGORY_COLORS: Record<string, { bg: string }> = {
-  Branding:    { bg: '#b23d59' },
-  Merchandise: { bg: '#1565c0' },
-  Security:    { bg: '#004851' },
-  Safety:      { bg: '#e65100' },
-  Operations:  { bg: '#2e7d32' },
+const CATEGORY_COLORS: Record<string, string> = {
+  Branding:    '#b23d59',
+  Merchandise: '#1565c0',
+  Security:    '#004851',
+  Safety:      '#e65100',
+  Operations:  '#2e7d32',
 };
-const getCategoryStyle = (cat: string) => ({ backgroundColor: (CATEGORY_COLORS[cat] ?? { bg: '#004851' }).bg, color: 'white' });
 
 export interface Template {
   id: string;
@@ -165,7 +165,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
           </button>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span className="category-tag" style={getCategoryStyle(category)}>{category}</span>
+          <Badge label={category} customColor={CATEGORY_COLORS[category] ?? '#004851'} size="small" />
           {isArchived && <span className="archived-badge">Archived</span>}
         </div>
       </div>

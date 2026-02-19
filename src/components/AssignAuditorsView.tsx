@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { AuditorAssignment, MockAuditor } from '../App';
+import { useRole, AREA_MANAGER_AUDITOR_ID } from '../context/RoleContext';
 
 const MOCK_AUDITORS: MockAuditor[] = [
   { id: 'js', name: 'John Smith',    role: 'Area Manager - West',       initials: 'JS' },
@@ -15,7 +16,6 @@ const MOCK_REGIONS = [
   { name: 'Central Region', stores: ['Chicago - Loop', 'Chicago - North Side', 'Dallas - Downtown', 'Houston - Midtown', 'Minneapolis - Downtown'] },
 ];
 
-const ALL_STORES = MOCK_REGIONS.flatMap((r) => r.stores);
 
 interface Props {
   initialAssignments: AuditorAssignment[];
@@ -38,6 +38,17 @@ const IndeterminateCheckbox: React.FC<IndeterminateCheckboxProps> = ({ checked, 
 };
 
 const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, onCancel }) => {
+  const { role } = useRole();
+
+  // Role-scoped auditor and region lists
+  const visibleAuditors = role === 'areaManager'
+    ? MOCK_AUDITORS.filter((a) => a.id === AREA_MANAGER_AUDITOR_ID)
+    : MOCK_AUDITORS;
+  const visibleRegions = role === 'areaManager'
+    ? MOCK_REGIONS.filter((r) => r.name === 'West Region')
+    : MOCK_REGIONS;
+  const visibleAllStores = visibleRegions.flatMap((r) => r.stores);
+
   // assignments: auditorId → selected stores[]
   const [assignments, setAssignments] = useState<Record<string, string[]>>(() => {
     const map: Record<string, string[]> = {};
@@ -45,18 +56,20 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
     return map;
   });
   const [activeAuditorId, setActiveAuditorId] = useState<string | null>(
-    initialAssignments.length > 0 ? initialAssignments[0].auditor.id : null
+    role === 'areaManager'
+      ? AREA_MANAGER_AUDITOR_ID
+      : initialAssignments.length > 0 ? initialAssignments[0].auditor.id : null
   );
   const [auditorSearch, setAuditorSearch] = useState('');
   const [expandedRegions, setExpandedRegions] = useState<Record<string, boolean>>(
-    Object.fromEntries(MOCK_REGIONS.map((r) => [r.name, true]))
+    Object.fromEntries(visibleRegions.map((r) => [r.name, true]))
   );
   const [nationalExpanded, setNationalExpanded] = useState(true);
 
   const activeAuditor = MOCK_AUDITORS.find((a) => a.id === activeAuditorId) ?? null;
   const activeStores = activeAuditorId ? (assignments[activeAuditorId] ?? []) : [];
 
-  const filteredAuditors = MOCK_AUDITORS.filter((a) =>
+  const filteredAuditors = visibleAuditors.filter((a) =>
     a.name.toLowerCase().includes(auditorSearch.toLowerCase()) ||
     a.role.toLowerCase().includes(auditorSearch.toLowerCase())
   );
@@ -88,11 +101,11 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
   };
 
   const toggleNational = () => {
-    const allSelected = ALL_STORES.every((s) => activeStores.includes(s));
+    const allSelected = visibleAllStores.every((s) => activeStores.includes(s));
     if (allSelected) {
       setActiveStores([]);
     } else {
-      setActiveStores([...ALL_STORES]);
+      setActiveStores([...visibleAllStores]);
     }
   };
 
@@ -102,8 +115,8 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
   };
 
   const getNationalState = () => {
-    const count = ALL_STORES.filter((s) => activeStores.includes(s)).length;
-    return { checked: count === ALL_STORES.length, indeterminate: count > 0 && count < ALL_STORES.length };
+    const count = visibleAllStores.filter((s) => activeStores.includes(s)).length;
+    return { checked: count === visibleAllStores.length, indeterminate: count > 0 && count < visibleAllStores.length };
   };
 
   const handleClearAll = () => {
@@ -111,7 +124,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
   };
 
   const handleConfirm = () => {
-    const result: AuditorAssignment[] = MOCK_AUDITORS
+    const result: AuditorAssignment[] = visibleAuditors
       .filter((a) => (assignments[a.id] ?? []).length > 0)
       .map((a) => ({ auditor: a, stores: assignments[a.id] }));
     onConfirm(result);
@@ -146,7 +159,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
         <div className="assign-left">
           <div className="assign-left-header">
             <span className="assign-left-title">All Auditors</span>
-            <span className="assign-left-count">{MOCK_AUDITORS.length}</span>
+            <span className="assign-left-count">{visibleAuditors.length}</span>
           </div>
           <input
             className="assign-search"
@@ -243,12 +256,12 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
                     </svg>
                     <span className="assign-region-name">National District</span>
                     <span className="assign-region-count">
-                      {ALL_STORES.filter((s) => activeStores.includes(s)).length}/{ALL_STORES.length}
+                      {visibleAllStores.filter((s) => activeStores.includes(s)).length}/{visibleAllStores.length}
                     </span>
                   </button>
                 </div>
 
-                {nationalExpanded && MOCK_REGIONS.map((region) => {
+                {nationalExpanded && visibleRegions.map((region) => {
                   const regionState = getRegionState(region.stores);
                   const isExpanded = expandedRegions[region.name];
                   const selectedInRegion = region.stores.filter((s) => activeStores.includes(s)).length;
@@ -311,7 +324,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
                 {totalAssignments} auditor{totalAssignments !== 1 ? 's' : ''} · {totalStores} store{totalStores !== 1 ? 's' : ''}
               </p>
               <div className="assign-summary-list">
-                {MOCK_AUDITORS.filter((a) => (assignments[a.id] ?? []).length > 0).map((auditor) => {
+                {visibleAuditors.filter((a) => (assignments[a.id] ?? []).length > 0).map((auditor) => {
                   const stores = assignments[auditor.id];
                   return (
                     <div key={auditor.id} className="assign-summary-auditor">

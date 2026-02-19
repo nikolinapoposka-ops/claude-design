@@ -1,5 +1,6 @@
 import React from 'react';
 import type { AuditInstance } from '../App';
+import { useRole } from '../context/RoleContext';
 
 
 const MOCK_SECTIONS = [
@@ -85,8 +86,14 @@ interface Props {
 }
 
 const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus }) => {
+  const { role } = useRole();
   const statusConfig = STATUS_CONFIG[storeStatus] ?? STATUS_CONFIG['not-started'];
   const isCompleted = storeStatus === 'completed';
+
+  // Find the auditor assigned to this specific store (only when audience === 'auditors')
+  const assignedAuditor = instance.audience === 'auditors' && instance.auditorAssignments
+    ? (instance.auditorAssignments.find((a) => a.stores.includes(storeName))?.auditor ?? null)
+    : null;
 
   const displaySections = instance.sectionData
     ? instance.sectionData.map((s, idx) => ({ id: idx + 1, title: s.title }))
@@ -253,13 +260,13 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
             </span>
           </div>
 
-          {/* Sitting with — in-progress only */}
-          {storeStatus === 'in-progress' && (
+          {/* Auditor — only when one is assigned to this store */}
+          {assignedAuditor && (
             <div className="store-submission-sidebar-field">
-              <span className="store-submission-sidebar-label">Sitting with</span>
+              <span className="store-submission-sidebar-label">Auditor</span>
               <span className="store-submission-sidebar-value">
-                <div className="avatar-sm">AB</div>
-                Roger Harris
+                <div className="avatar-sm">{assignedAuditor.initials}</div>
+                {assignedAuditor.name}
               </span>
             </div>
           )}
@@ -325,6 +332,15 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
 
         </div>
       </div>
+
+      {/* Bottom bar — recipient CTA (store or auditor, actionable states only) */}
+      {(role === 'areaManager' || role === 'store') && (storeStatus === 'not-started' || storeStatus === 'in-progress') && (
+        <div className="audit-detail-bottom-bar">
+          <button className="btn btn--filled btn--pill">
+            {storeStatus === 'in-progress' ? 'Continue audit' : 'Start audit'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
