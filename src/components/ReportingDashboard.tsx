@@ -288,6 +288,7 @@ const ReportingDashboard: React.FC = () => {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [selectedAuditId, setSelectedAuditId] = useState<string>('');
   const [selectedAreaId, setSelectedAreaId] = useState<string>('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [comparisonMode, setComparisonMode] = useState(false);
   const [compareAuditId, setCompareAuditId] = useState<string>('');
   const [dateFrom, setDateFrom] = useState('');
@@ -320,12 +321,31 @@ const ReportingDashboard: React.FC = () => {
     setCompareAuditId('');
   };
 
+  const handleAreaChange = (id: string) => {
+    setSelectedAreaId(id);
+    setSelectedStoreId('');
+  };
+
   // ── Filtered stores ──
   const filteredStores = useMemo(() => {
     let stores = visibleStores;
     if (selectedAreaId) stores = stores.filter(s => s.areaId === selectedAreaId);
+    if (selectedStoreId) stores = stores.filter(s => s.id === selectedStoreId);
+    return stores;
+  }, [visibleStores, selectedAreaId, selectedStoreId]);
+
+  // Stores available in the store dropdown (cascades from area, before store selection)
+  const availableStoresForFilter = useMemo(() => {
+    let stores = visibleStores;
+    if (selectedAreaId) stores = stores.filter(s => s.areaId === selectedAreaId);
     return stores;
   }, [visibleStores, selectedAreaId]);
+
+  // Single-store mode: a specific store is focused (either via filter or Store role)
+  const singleStoreMode = !!selectedStoreId || role === 'store';
+  const focusedStore = selectedStoreId
+    ? REPORT_STORES.find(s => s.id === selectedStoreId)
+    : role === 'store' ? filteredStores[0] : undefined;
 
   const filteredStoreIds = useMemo(() => new Set(filteredStores.map(s => s.id)), [filteredStores]);
 
@@ -408,10 +428,10 @@ const ReportingDashboard: React.FC = () => {
     return Object.entries(map).map(([name, scores]) => ({ name, avgScore: avg(scores) }));
   }, [selectedAuditId, primaryResults, templateResults]);
 
-  // Store role: historical trend line
+  // Single-store (Store role or HQ/AM with store filter): historical trend line
   const storeHistoryData = useMemo(() => {
-    if (role !== 'store') return [];
-    const sfStore = filteredStores[0];
+    if (!singleStoreMode) return [];
+    const sfStore = focusedStore;
     if (!sfStore) return [];
     return [...allVisibleResults]
       .filter(r => r.storeId === sfStore.id && r.status === 'done')
@@ -426,7 +446,7 @@ const ReportingDashboard: React.FC = () => {
         chartName: (REPORT_AUDITS.find(a => a.id === r.auditId)?.name ?? '')
           .replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', ''),
       }));
-  }, [role, filteredStores, allVisibleResults]);
+  }, [singleStoreMode, focusedStore, allVisibleResults]);
 
   // HQ/AM default: area table rows
   const areaTableData = useMemo(() => {
@@ -479,8 +499,8 @@ const ReportingDashboard: React.FC = () => {
   const compareAudit = REPORT_AUDITS.find(a => a.id === compareAuditId);
 
   // ── What to render ──
-  const showDefaultAreaTable  = isDefault && role !== 'store';
-  const showDefaultStoreHistory = isDefault && role === 'store';
+  const showDefaultAreaTable  = isDefault && !singleStoreMode;
+  const showDefaultStoreHistory = isDefault && singleStoreMode;
   const showTemplateTable     = !isDefault && !!selectedAuditId;
   const showTemplateHint      = !isDefault && !selectedAuditId;
 
@@ -527,11 +547,24 @@ const ReportingDashboard: React.FC = () => {
               </span>
             )}
           </label>
-          <select className="rp-filter-select" value={selectedAreaId} onChange={e => setSelectedAreaId(e.target.value)} disabled={areaLocked || storeLocked}>
+          <select className="rp-filter-select" value={selectedAreaId} onChange={e => handleAreaChange(e.target.value)} disabled={areaLocked || storeLocked}>
             {!areaLocked && <option value="">All areas</option>}
             {visibleAreas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
+        {!storeLocked && (
+          <div className="rp-filter-group">
+            <label className="rp-filter-label">Store</label>
+            <select
+              className="rp-filter-select"
+              value={selectedStoreId}
+              onChange={e => setSelectedStoreId(e.target.value)}
+            >
+              <option value="">All stores</option>
+              {availableStoresForFilter.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
         <div className="rp-filter-sep" />
         <div className="rp-filter-group">
           <label className="rp-filter-label">Audit template</label>
@@ -630,11 +663,11 @@ const ReportingDashboard: React.FC = () => {
 
         {/* Right chart: store role = personal trend line, others = section breakdown */}
         <div className="rp-chart-card">
-          {role === 'store' && isDefault ? (
+          {singleStoreMode && isDefault ? (
             <>
               <div className="rp-chart-header">
-                <div className="rp-chart-title">Your score history</div>
-                <div className="rp-chart-sub">San Francisco - Downtown · all completed audits</div>
+                <div className="rp-chart-title">{role === 'store' ? 'Your score history' : 'Store score history'}</div>
+                <div className="rp-chart-sub">{focusedStore?.name ?? 'Selected store'} · all completed audits</div>
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={storeHistoryData.map(h => ({ name: h.chartName, score: h.result.overallScore }))} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
@@ -713,7 +746,7 @@ const ReportingDashboard: React.FC = () => {
       {showDefaultStoreHistory && (
         <div className="rp-table-card">
           <div className="rp-table-header">
-            <div className="rp-table-title">Your audit history</div>
+            <div className="rp-table-title">{role === 'store' ? 'Your audit history' : `${focusedStore?.name ?? 'Store'} — audit history`}</div>
             <div className="rp-table-count">{storeHistoryData.length} completed audit{storeHistoryData.length !== 1 ? 's' : ''}</div>
           </div>
           <div className="rp-col-headers">
