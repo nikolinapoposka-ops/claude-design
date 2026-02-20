@@ -520,9 +520,11 @@ const ReportingDashboard: React.FC = () => {
           <label className="rp-filter-label">
             Area
             {areaLocked && (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11" style={{ marginLeft: 4 }} title="Locked by your role">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
-              </svg>
+              <span title="Locked by your role" style={{ display: 'inline-flex', marginLeft: 4 }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+                </svg>
+              </span>
             )}
           </label>
           <select className="rp-filter-select" value={selectedAreaId} onChange={e => setSelectedAreaId(e.target.value)} disabled={areaLocked || storeLocked}>
@@ -600,7 +602,7 @@ const ReportingDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Avg Score']} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Bar dataKey="avgScore" fill="#1565c0" radius={[3, 3, 0, 0]} maxBarSize={48} />
                 </BarChart>
               </ResponsiveContainer>
@@ -616,7 +618,7 @@ const ReportingDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Avg Score']} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Bar dataKey="avgScore" fill="#1565c0" radius={[3, 3, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
@@ -639,7 +641,7 @@ const ReportingDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Score']} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Line type="monotone" dataKey="score" stroke="#2e7d32" strokeWidth={2} dot={{ r: 4, fill: '#2e7d32' }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -655,7 +657,7 @@ const ReportingDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" horizontal={false} />
                   <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
                   <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7a85' }} />
-                  <Tooltip formatter={(v: number) => [`${v}%`, 'Avg Score']} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Bar dataKey="avgScore" fill="#2e7d32" radius={[0, 3, 3, 0]} maxBarSize={24} />
                 </BarChart>
               </ResponsiveContainer>
