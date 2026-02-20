@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AuditInstance } from '../App';
-import { useRole } from '../context/RoleContext';
+import { useRole, AREA_MANAGER_AUDITOR_ID } from '../context/RoleContext';
+import AuditChat from './AuditChat';
 
 
 const MOCK_SECTIONS = [
@@ -94,6 +95,14 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
   const assignedAuditor = instance.audience === 'auditors' && instance.auditorAssignments
     ? (instance.auditorAssignments.find((a) => a.stores.includes(storeName))?.auditor ?? null)
     : null;
+
+  // Chat visibility: hide when viewer = audit executor (self-created auditor audit)
+  const isAuditorFlow = instance.audience === 'auditors';
+  const assignedAuditorId = assignedAuditor?.id;
+  const viewerIsExecutor = role === 'areaManager' && assignedAuditorId === AREA_MANAGER_AUDITOR_ID;
+  const isSelfCreated = !!instance.createdBy && instance.createdBy === assignedAuditorId;
+  const showChat = !(viewerIsExecutor && isSelfCreated);
+  const chatVariant: 'store' | 'auditor' = isAuditorFlow ? 'auditor' : 'store';
 
   const displaySections = instance.sectionData
     ? instance.sectionData.map((s, idx) => ({ id: idx + 1, title: s.title }))
@@ -227,6 +236,9 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
             <span className="store-submission-meta-label">Size</span>
             {isCompleted && <span className="store-submission-size-value">Small</span>}
           </div>
+
+          {/* Discussion */}
+          <AuditChat visible={showChat} variant={chatVariant} />
         </div>
 
         {/* ── Right sidebar ── */}

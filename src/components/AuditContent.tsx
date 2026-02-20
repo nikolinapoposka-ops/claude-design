@@ -103,7 +103,7 @@ const toAuditCardProps = (inst: AuditInstance) => {
     id: inst.id,
     title: inst.title,
     startDate: inst.startDate ? formatCardDate(inst.startDate) : undefined,
-    dueDate: inst.dueDate || '—',
+    dueDate: inst.dueDate || undefined,
     category: inst.category,
   };
 

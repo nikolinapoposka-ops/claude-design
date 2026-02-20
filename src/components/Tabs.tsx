@@ -15,6 +15,7 @@ interface TabsProps {
   'aria-label': string;
   'data-test-id'?: string;
   defaultSelected?: number;
+  value?: number;
   size?: 's' | 'm';
   border?: boolean;
   fullWidth?: boolean;
@@ -48,12 +49,14 @@ const Tabs: React.FC<TabsProps> & { Button: typeof TabsButton } = ({
   'aria-label': ariaLabel,
   'data-test-id': testId,
   defaultSelected = 0,
+  value,
   size = 'm',
   fullWidth,
   border,
   children,
 }) => {
   const [selected, setSelected] = useState(defaultSelected);
+  const effectiveSelected = value !== undefined ? value : selected;
 
   return (
     <div
@@ -65,7 +68,7 @@ const Tabs: React.FC<TabsProps> & { Button: typeof TabsButton } = ({
       {React.Children.map(children, (child, index) =>
         React.cloneElement(child, {
           index,
-          selected: selected === index,
+          selected: effectiveSelected === index,
           size,
           setSelected: () => setSelected(index),
         })

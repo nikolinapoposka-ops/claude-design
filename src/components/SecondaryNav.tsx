@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Tabs from './Tabs';
 import CreateAuditModal from './CreateAuditModal';
 import { useRole } from '../context/RoleContext';
+import { useToast } from './Toast';
 
 const dropdownItems = [
   {
@@ -95,7 +96,11 @@ interface SecondaryNavProps {
 
 const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate }) => {
   const { role } = useRole();
+  const createToast = useToast();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const notifyTabMissing = () =>
+    createToast({ message: 'This tab page does not exist yet, be patient', type: 'info' });
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -125,11 +130,13 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
         <Tabs
           aria-label="Store navigation"
           data-test-id="tabs-secondary-nav"
-          defaultSelected={2}
+          defaultSelected={5}
+          value={5}
         >
           <Tabs.Button
             text="Dashboard"
             data-test-id="tab-btn-dashboard"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -142,6 +149,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Story"
             data-test-id="tab-btn-story"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="4" width="18" height="17" rx="2" ry="2"></rect>
@@ -155,6 +163,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Tasks"
             data-test-id="tab-btn-tasks"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>
@@ -166,6 +175,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Files"
             data-test-id="tab-btn-files"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
@@ -182,6 +192,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Forms"
             data-test-id="tab-btn-forms"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
@@ -206,6 +217,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Report"
             data-test-id="tab-btn-report"
+            onClick={notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>

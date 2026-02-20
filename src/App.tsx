@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { useRole, STORE_NAME } from './context/RoleContext';
+import { useRole, STORE_NAME, AREA_MANAGER_AUDITOR_ID } from './context/RoleContext';
 import Navbar from './components/Navbar';
 import SecondaryNav from './components/SecondaryNav';
 import MainContent from './components/MainContent';
@@ -59,6 +59,7 @@ export interface AuditInstance {
   description?: string;
   isPriority?: boolean;
   message?: string;
+  createdBy?: string; // auditor id — used to detect self-created audits (viewer = executor → hide chat)
 }
 
 const DEFAULT_DRAFT_TITLE = 'New brush and sponge drop';
@@ -73,6 +74,90 @@ const INITIAL_TEMPLATES: Template[] = Array.from({ length: 10 }, (_, i) => ({
   category: 'Security',
   status: 'library',
 }));
+
+const SEED_AUDIT_INSTANCES: AuditInstance[] = [
+  {
+    id: 'seed-1',
+    title: 'Fire safety audit',
+    category: 'Security',
+    sendOutDate: '2025-10-03T19:30:00',
+    startDate: '2025-10-03',
+    dueDate: '2025-10-30',
+    status: 'sent',
+    audience: 'stores',
+    isPriority: true,
+    stores: [
+      'San Francisco - Downtown',
+      'Los Angeles - Westside',
+      'Seattle - Capitol Hill',
+      'Portland - Pearl District',
+    ],
+    auditors: [],
+    completedCount: 1,
+    description:
+      'Comprehensive fire safety compliance check including extinguishers, exits, and alarm systems. This audit ensures all stores meet regulatory requirements and maintain a safe environment for staff and customers.',
+    sectionData: [
+      { title: 'Maintenance & Safety', questions: [] },
+      { title: 'Customer service', questions: [] },
+      { title: 'Branding', questions: [] },
+    ],
+  },
+  {
+    id: 'seed-2',
+    title: 'Monthly operations review',
+    category: 'Operations',
+    sendOutDate: '2025-11-01T09:00:00',
+    startDate: '2025-11-01',
+    dueDate: '2025-11-15',
+    status: 'sent',
+    audience: 'auditors',
+    stores: [
+      'San Francisco - Downtown',
+      'Los Angeles - Westside',
+      'Seattle - Capitol Hill',
+      'Portland - Pearl District',
+      'Denver - LoDo',
+      'Chicago - River North',
+    ],
+    auditors: [
+      { name: 'Emily Davis', initials: 'ED' },
+      { name: 'John Smith', initials: 'JS' },
+    ],
+    completedCount: 2,
+    createdBy: 'hq',
+    auditorAssignments: [
+      {
+        auditor: { id: 'ed', name: 'Emily Davis', role: 'Area Manager', initials: 'ED' },
+        stores: ['San Francisco - Downtown', 'Los Angeles - Westside', 'Seattle - Capitol Hill'],
+      },
+      {
+        auditor: { id: 'js', name: 'John Smith', role: 'Auditor', initials: 'JS' },
+        stores: ['Portland - Pearl District', 'Denver - LoDo', 'Chicago - River North'],
+      },
+    ],
+  },
+  {
+    // Self-created: Emily assigned herself — chat hidden for Area Manager, visible for HQ
+    id: 'seed-3',
+    title: 'Self-initiated store walkthrough',
+    category: 'Operations',
+    sendOutDate: '2025-12-01T08:00:00',
+    startDate: '2025-12-01',
+    dueDate: '2025-12-20',
+    status: 'sent',
+    audience: 'auditors',
+    stores: ['San Francisco - Downtown', 'Los Angeles - Westside'],
+    auditors: [{ name: 'Emily Davis', initials: 'ED' }],
+    completedCount: 0,
+    createdBy: 'ed',
+    auditorAssignments: [
+      {
+        auditor: { id: 'ed', name: 'Emily Davis', role: 'Area Manager', initials: 'ED' },
+        stores: ['San Francisco - Downtown', 'Los Angeles - Westside'],
+      },
+    ],
+  },
+];
 
 let tempIdCounter = 0;
 
@@ -109,7 +194,7 @@ function AppContent() {
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>('library');
   const [auditCollectionFilter, setAuditCollectionFilter] = useState<AuditCollectionFilter>('overview');
   const [selectedAuditTemplate, setSelectedAuditTemplate] = useState<Template | null>(null);
-  const [auditInstances, setAuditInstances] = useState<AuditInstance[]>([]);
+  const [auditInstances, setAuditInstances] = useState<AuditInstance[]>(SEED_AUDIT_INSTANCES);
   const [auditorAssignments, setAuditorAssignments] = useState<AuditorAssignment[]>([]);
   const [selfAuditStores, setSelfAuditStores] = useState<string[]>([]);
   const [selectedAuditInstance, setSelectedAuditInstance] = useState<AuditInstance | null>(null);
@@ -435,6 +520,7 @@ function AppContent() {
         isPriority: selectedAuditTemplate.isPriority,
         recurringDate: data.recurringDate || '',
         message: data.message || '',
+        createdBy: role === 'areaManager' ? AREA_MANAGER_AUDITOR_ID : 'hq',
       };
       if (selectedAuditInstance) {
         // Replace the existing draft with the new sent/scheduled instance

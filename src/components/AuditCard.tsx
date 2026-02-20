@@ -157,7 +157,7 @@ const AuditCard: React.FC<AuditCardProps> = ({
       )}
 
       {/* Dates */}
-      <div className="card-dates">
+      {(startDate || dueDate) && <div className="card-dates">
         {startDate && (
           <>
             <svg viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2" width="14" height="14">
@@ -179,7 +179,7 @@ const AuditCard: React.FC<AuditCardProps> = ({
             <span className="card-meta">{dueDate}</span>
           </>
         )}
-      </div>
+      </div>}
 
       {/* Footer */}
       <div className="card-footer">
