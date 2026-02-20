@@ -345,8 +345,8 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
         </div>
       </div>
 
-      {/* Bottom bar — only the store recipient can start/continue their own audit */}
-      {role === 'store' && (storeStatus === 'not-started' || storeStatus === 'in-progress') && (
+      {/* Bottom bar — store recipient OR assigned auditor can start/continue */}
+      {(role === 'store' || viewerIsExecutor) && (storeStatus === 'not-started' || storeStatus === 'in-progress') && (
         <div className="audit-detail-bottom-bar">
           <button className="btn btn--filled btn--pill">
             {storeStatus === 'in-progress' ? 'Continue audit' : 'Start audit'}
