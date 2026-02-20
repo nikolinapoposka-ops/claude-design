@@ -92,9 +92,12 @@ const dropdownItems = [
 interface SecondaryNavProps {
   onNavigateToTemplate: () => void;
   onReuseTemplate: () => void;
+  onNavigateToAudit?: () => void;
+  onNavigateToReporting?: () => void;
+  reportingActive?: boolean;
 }
 
-const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate }) => {
+const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate, onNavigateToAudit, onNavigateToReporting, reportingActive }) => {
   const { role } = useRole();
   const createToast = useToast();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -131,7 +134,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           aria-label="Store navigation"
           data-test-id="tabs-secondary-nav"
           defaultSelected={5}
-          value={5}
+          value={reportingActive ? 6 : 5}
         >
           <Tabs.Button
             text="Dashboard"
@@ -206,6 +209,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Audit"
             data-test-id="tab-btn-audit"
+            onClick={onNavigateToAudit}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 3h18v13l-5 5H3V3z"></path>
@@ -217,7 +221,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           <Tabs.Button
             text="Report"
             data-test-id="tab-btn-report"
-            onClick={notifyTabMissing}
+            onClick={onNavigateToReporting ?? notifyTabMissing}
             icon={
               <svg className="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>

@@ -232,6 +232,14 @@ interface QuestionEditorProps {
   index: number;
   sections: Section[];
   sectionIndex: number;
+  elementId?: string;
+  isDragging?: boolean;
+  isDragOver?: boolean;
+  onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent) => void;
   onTitleChange: (t: string) => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -248,7 +256,9 @@ interface QuestionEditorProps {
 }
 
 const QuestionEditor: React.FC<QuestionEditorProps> = ({
-  question, index, sections, sectionIndex,
+  question, index, sections, sectionIndex, elementId,
+  isDragging, isDragOver,
+  onDragStart, onDragEnd, onDragOver, onDragLeave, onDrop,
   onTitleChange, onDelete, onDuplicate,
   onToggleRequired, onAddOption, onDeleteOption, onOptionTextChange,
   onDestinationChange, onToggleConditionalLogic,
@@ -268,8 +278,19 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
     .filter(({ sIdx }) => sIdx !== sectionIndex);
 
   return (
-    <div className="question-editor">
-      <div className="section-drag-handle">
+    <div
+      className={`question-editor${isDragging ? ' question-editor--dragging' : ''}${isDragOver ? ' question-editor--drag-over' : ''}`}
+      id={elementId}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      <div
+        className="section-drag-handle"
+        draggable
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
         <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
           <circle cx="7" cy="5" r="1.3" /><circle cx="13" cy="5" r="1.3" />
           <circle cx="7" cy="10" r="1.3" /><circle cx="13" cy="10" r="1.3" />
@@ -578,12 +599,22 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
   const [isPriority, setIsPriority] = useState(false);
   const [description, setDescription] = useState('');
   const [sections, setSections] = useState<Section[]>([]);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const [draggingSectionIdx, setDraggingSectionIdx] = useState<number | null>(null);
+  const [dragOverSectionIdx, setDragOverSectionIdx] = useState<number | null>(null);
+  const [draggingQ, setDraggingQ] = useState<{ si: number; qi: number } | null>(null);
+  const [dragOverQ, setDragOverQ] = useState<{ si: number; qi: number } | null>(null);
+  // Refs read synchronously in drag events (state updates are async — stale in first dragover)
+  const draggingSectionRef = useRef<number | null>(null);
+  const draggingQRef = useRef<{ si: number; qi: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const sizeRef = useRef<HTMLDivElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
 
   const handleAddSection = () => {
-    setSections((prev) => [...prev, { id: `section-${Date.now()}`, title: 'Untitled section', questions: [] }]);
+    const newId = `section-${Date.now()}`;
+    setSections((prev) => [...prev, { id: newId, title: 'Untitled section', questions: [] }]);
+    setLastAddedId(newId);
   };
 
   const handleDeleteSection = (id: string) => {
@@ -612,10 +643,105 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
     setSections((prev) => prev.map((s) => (s.id === id ? { ...s, title } : s)));
   };
 
+  const handleSectionDragStart = (sIdx: number) => (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    draggingSectionRef.current = sIdx;
+    setDraggingSectionIdx(sIdx);
+  };
+
+  const handleSectionDragOver = (sIdx: number) => (e: React.DragEvent) => {
+    if (draggingSectionRef.current === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverSectionIdx !== sIdx) setDragOverSectionIdx(sIdx);
+  };
+
+  const handleSectionDragLeave = (e: React.DragEvent) => {
+    if (draggingSectionRef.current === null) return;
+    const related = e.relatedTarget as Node | null;
+    if (!e.currentTarget.contains(related)) setDragOverSectionIdx(null);
+  };
+
+  const handleSectionDrop = (sIdx: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const from = draggingSectionRef.current;
+    if (from !== null && from !== sIdx) {
+      setSections((prev) => {
+        const next = [...prev];
+        const [removed] = next.splice(from, 1);
+        next.splice(sIdx, 0, removed);
+        return next;
+      });
+    }
+    draggingSectionRef.current = null;
+    setDraggingSectionIdx(null);
+    setDragOverSectionIdx(null);
+  };
+
+  const handleSectionDragEnd = () => {
+    draggingSectionRef.current = null;
+    setDraggingSectionIdx(null);
+    setDragOverSectionIdx(null);
+  };
+
+  const handleQuestionDragStart = (si: number, qi: number) => (e: React.DragEvent) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    draggingQRef.current = { si, qi };
+    setDraggingQ({ si, qi });
+  };
+
+  const handleQuestionDragOver = (si: number, qi: number) => (e: React.DragEvent) => {
+    if (!draggingQRef.current || draggingQRef.current.si !== si) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (!dragOverQ || dragOverQ.si !== si || dragOverQ.qi !== qi) setDragOverQ({ si, qi });
+  };
+
+  const handleQuestionDragLeave = (e: React.DragEvent) => {
+    if (!draggingQRef.current) return;
+    const related = e.relatedTarget as Node | null;
+    if (!e.currentTarget.contains(related)) setDragOverQ(null);
+  };
+
+  const handleQuestionDrop = (si: number, qi: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const current = draggingQRef.current;
+    if (!current || current.si !== si) return;
+    const fromQi = current.qi;
+    if (fromQi !== qi) {
+      setSections((prev) =>
+        prev.map((s, i) => {
+          if (i !== si) return s;
+          const qs = [...s.questions];
+          const [removed] = qs.splice(fromQi, 1);
+          qs.splice(qi, 0, removed);
+          return { ...s, questions: qs };
+        })
+      );
+    }
+    draggingQRef.current = null;
+    setDraggingQ(null);
+    setDragOverQ(null);
+  };
+
+  const handleQuestionDragEnd = () => {
+    draggingQRef.current = null;
+    setDraggingQ(null);
+    setDragOverQ(null);
+  };
+
   const handleAddQuestion = (sectionId: string) => {
+    const newQ = createQuestion();
     setSections((prev) =>
-      prev.map((s) => s.id === sectionId ? { ...s, questions: [...s.questions, createQuestion()] } : s)
+      prev.map((s) => s.id === sectionId ? { ...s, questions: [...s.questions, newQ] } : s)
     );
+    setLastAddedId(newQ.id);
   };
 
   const handleDeleteQuestion = (sectionId: string, questionId: string) => {
@@ -812,6 +938,13 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
   };
 
   useEffect(() => {
+    if (!lastAddedId) return;
+    const el = document.getElementById(lastAddedId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setLastAddedId(null);
+  }, [lastAddedId]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setDropdownOpen(false);
       if (sizeRef.current && !sizeRef.current.contains(e.target as Node)) setSizeOpen(false);
@@ -911,8 +1044,20 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
             ) : (
               <>
                 {sections.map((section, sIdx) => (
-                  <div key={section.id} className="section-editor">
-                    <div className="section-drag-handle">
+                  <div
+                    key={section.id}
+                    id={section.id}
+                    className={`section-editor${draggingSectionIdx === sIdx ? ' section-editor--dragging' : ''}${dragOverSectionIdx === sIdx && draggingSectionIdx !== sIdx ? ' section-editor--drag-over' : ''}`}
+                    onDragOver={handleSectionDragOver(sIdx)}
+                    onDragLeave={handleSectionDragLeave}
+                    onDrop={handleSectionDrop(sIdx)}
+                  >
+                    <div
+                      className="section-drag-handle"
+                      draggable
+                      onDragStart={handleSectionDragStart(sIdx)}
+                      onDragEnd={handleSectionDragEnd}
+                    >
                       <svg viewBox="0 0 20 20" fill="currentColor" width="18" height="18">
                         <circle cx="7" cy="5" r="1.5" /><circle cx="13" cy="5" r="1.5" />
                         <circle cx="7" cy="10" r="1.5" /><circle cx="13" cy="10" r="1.5" />
@@ -946,6 +1091,14 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
                             key={question.id}
                             question={question}
                             index={qIdx}
+                            elementId={question.id}
+                            isDragging={draggingQ?.si === sIdx && draggingQ?.qi === qIdx}
+                            isDragOver={dragOverQ?.si === sIdx && dragOverQ?.qi === qIdx && !(draggingQ?.si === sIdx && draggingQ?.qi === qIdx)}
+                            onDragStart={handleQuestionDragStart(sIdx, qIdx)}
+                            onDragEnd={handleQuestionDragEnd}
+                            onDragOver={handleQuestionDragOver(sIdx, qIdx)}
+                            onDragLeave={handleQuestionDragLeave}
+                            onDrop={handleQuestionDrop(sIdx, qIdx)}
                             sections={sections}
                             sectionIndex={sIdx}
                             onTitleChange={(t) => handleQuestionTitleChange(section.id, question.id, t)}

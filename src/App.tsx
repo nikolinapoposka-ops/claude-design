@@ -19,6 +19,7 @@ import type { EditAudienceData } from './components/EditAudienceDatesView';
 import StoreSubmissionView from './components/StoreSubmissionView';
 import AssignAuditorsView from './components/AssignAuditorsView';
 import AssignStoresView from './components/AssignStoresView';
+import ReportingDashboard from './components/ReportingDashboard';
 import type { SendAuditData } from './components/ReviewAndSendContent';
 import { ToastProvider, useToast } from './components/Toast';
 import type { Template } from './components/TemplateCard';
@@ -27,7 +28,7 @@ import type { CollectionFilter, AuditCollectionFilter } from './components/Audit
 type View = 'list' | 'create-template' | 'template-detail' | 'edit-template'
            | 'choose-template' | 'template-overview' | 'review-and-send'
            | 'assign-auditors' | 'assign-stores' | 'audit-detail' | 'audit-config'
-           | 'edit-audience-dates' | 'store-submission';
+           | 'edit-audience-dates' | 'store-submission' | 'reporting';
 
 export interface MockAuditor {
   id: string;
@@ -546,6 +547,8 @@ function AppContent() {
           <SecondaryNav
             onNavigateToTemplate={handleNavigateToTemplate}
             onReuseTemplate={handleReuseTemplate}
+            onNavigateToAudit={() => setView('list')}
+            onNavigateToReporting={() => setView('reporting')}
           />
           <MainContent
             tab={activeTab}
@@ -660,6 +663,17 @@ function AppContent() {
           {selectedAuditInstance && (
             <StoreSubmissionView instance={selectedAuditInstance} storeName={selectedStoreName} storeStatus={selectedStoreStatus} />
           )}
+        </>
+      ) : view === 'reporting' ? (
+        <>
+          <SecondaryNav
+            onNavigateToTemplate={handleNavigateToTemplate}
+            onReuseTemplate={handleReuseTemplate}
+            onNavigateToAudit={() => setView('list')}
+            onNavigateToReporting={() => setView('reporting')}
+            reportingActive={true}
+          />
+          <ReportingDashboard />
         </>
       ) : (
         <>
