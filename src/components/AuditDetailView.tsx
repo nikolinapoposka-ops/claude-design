@@ -223,11 +223,6 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
               This task is incomplete for 1 archived user
             </span>
           </div>
-          {isAuditorsMode && (
-            <p className="audit-detail-subtitle">
-              Progress reflects audits completed by auditors at each store.
-            </p>
-          )}
         </div>
 
         {/* Toolbar */}
@@ -361,6 +356,13 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
 
           </div>
         </div>
+
+        {/* Subtitle — shown below toolbar for auditor-mode audits */}
+        {isAuditorsMode && (
+          <p className="audit-detail-subtitle">
+            Progress reflects audits completed by auditors at each store.
+          </p>
+        )}
 
         {/* Breakdown list */}
         <div className="audit-detail-list">
