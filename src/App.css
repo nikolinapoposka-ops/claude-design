@@ -4497,7 +4497,10 @@ body {
     font-family: 'Nunito', sans-serif;
     font-size: 13px;
     color: var(--qui-color-surface-on-surface);
-    flex: 1;
+    flex: 0 0 220px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* Entry rows */
@@ -4517,7 +4520,10 @@ body {
     font-family: 'Nunito', sans-serif;
     font-size: 13px;
     color: var(--qui-color-surface-on-surface);
-    min-width: 80px;
+    flex: 0 0 120px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .breakdown-avatar {
