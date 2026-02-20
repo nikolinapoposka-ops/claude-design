@@ -426,7 +426,9 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                               className="breakdown-entry-row breakdown-entry-row--flat breakdown-entry-row--clickable"
                               onClick={() => onViewStore(storeName, status)}
                             >
-                              <span className="breakdown-store-name">{storeName}</span>
+                              <div className="breakdown-name-col">
+                                <span className="breakdown-store-name">{storeName}</span>
+                              </div>
                               <StatusPill status={status} />
                               {isCompleted && <span className="breakdown-score">Score <strong>78%</strong></span>}
                               <span className="breakdown-date-text">
@@ -452,7 +454,9 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                             className="breakdown-entry-row breakdown-entry-row--flat breakdown-entry-row--clickable"
                             onClick={() => onViewStore(storeName, status)}
                           >
-                            <span className="breakdown-store-name">{storeName}</span>
+                            <div className="breakdown-name-col">
+                              <span className="breakdown-store-name">{storeName}</span>
+                            </div>
                             <StatusPill status={status} />
                             {isCompleted && (
                               <span className="breakdown-score">Score <strong>78%</strong></span>
@@ -495,9 +499,11 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                               className="breakdown-entry-row breakdown-entry-row--clickable breakdown-entry-row--child"
                               onClick={() => onViewStore(storeName, status)}
                             >
-                              <span className="breakdown-picked-up-label">Picked up by</span>
-                              <div className="avatar-sm breakdown-avatar">{MOCK_ASSIGNEE.initials}</div>
-                              <span className="breakdown-entry-name">{MOCK_ASSIGNEE.name}</span>
+                              <div className="breakdown-name-col breakdown-name-col--child">
+                                <span className="breakdown-picked-up-label">Picked up by</span>
+                                <div className="avatar-sm breakdown-avatar">{MOCK_ASSIGNEE.initials}</div>
+                                <span className="breakdown-entry-name">{MOCK_ASSIGNEE.name}</span>
+                              </div>
                               <StatusPill status={status} />
                               {isCompleted && (
                                 <span className="breakdown-score">Score <strong>78%</strong></span>
@@ -517,7 +523,9 @@ const AuditDetailView: React.FC<Props> = ({ instance, onViewDetails, onViewStore
                             className="breakdown-entry-row breakdown-entry-row--flat breakdown-entry-row--clickable"
                             onClick={() => onViewStore(storeName, status)}
                           >
-                            <span className="breakdown-store-name">{storeName}</span>
+                            <div className="breakdown-name-col">
+                              <span className="breakdown-store-name">{storeName}</span>
+                            </div>
                             <StatusPill status={status} />
                             <span className="breakdown-date-text">Send out 11 Nov</span>
                             <EntryActions />

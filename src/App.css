@@ -4493,11 +4493,24 @@ body {
     background-color: var(--qui-color-surface-contrast-low);
 }
 
+.breakdown-name-col {
+    flex: 0 0 250px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.breakdown-name-col--child {
+    padding-left: 24px;
+}
+
 .breakdown-store-name {
     font-family: 'Nunito', sans-serif;
     font-size: 13px;
     color: var(--qui-color-surface-on-surface);
-    flex: 0 0 220px;
+    flex: 1;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -4520,10 +4533,11 @@ body {
     font-family: 'Nunito', sans-serif;
     font-size: 13px;
     color: var(--qui-color-surface-on-surface);
-    flex: 0 0 120px;
+    flex: 1;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .breakdown-avatar {
@@ -5337,7 +5351,7 @@ body {
 
 /* Person row indented under the store owner header */
 .breakdown-entry-row--child {
-    padding-left: 40px;
+    padding-left: 16px;
     border-top: none;
 }
 
