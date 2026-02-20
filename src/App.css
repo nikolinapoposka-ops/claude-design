@@ -4438,7 +4438,7 @@ body {
     font-size: 13px;
     font-weight: 700;
     color: var(--qui-color-surface-on-surface);
-    flex: 1;
+    flex-shrink: 0;
 }
 
 .breakdown-region-progress {
