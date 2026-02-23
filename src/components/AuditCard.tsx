@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Badge, Avatar } from '@quinyx/ui';
 import { useRole, STORE_NAME, AREA_MANAGER_NAME } from '../context/RoleContext';
+import { useToast } from './Toast';
 
 interface ProgressInfo {
   total: number;
@@ -39,9 +40,13 @@ const AuditCard: React.FC<AuditCardProps> = ({
   onClick,
 }) => {
   const { role } = useRole();
+  const createToast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
+  const [notifyNote, setNotifyNote] = useState('');
 
   return (
+    <>
     <div className={`audit-card${onClick ? ' audit-card--clickable' : ''}`} onClick={onClick}>
 
       {/* Header: audit icon + bookmark */}
@@ -124,25 +129,34 @@ const AuditCard: React.FC<AuditCardProps> = ({
             <div className="progress-bar-track">
               <div className="progress-bar-fill" style={{ width: `${progress.percentage}%` }}></div>
             </div>
-            {progress.auditors && progress.auditors.length > 0 && (
-              <div className="card-row">
-                <span className="card-label">Auditors</span>
-                <div className="avatar-group">
-                  {(role === 'areaManager'
-                    ? progress.auditors.filter((a) => a.name === AREA_MANAGER_NAME)
-                    : progress.auditors
-                  ).map((a, i) => (
-                    <div key={i} className="avatar-tooltip-wrap">
-                      <Avatar name={a.name} size="xs" hasBorder />
-                      <span className="avatar-tooltip">{a.name}</span>
-                    </div>
-                  ))}
-                  {role !== 'areaManager' && progress.moreCount !== undefined && (
-                    <div className="avatar-sm avatar-more">+{progress.moreCount}</div>
-                  )}
+            {(() => {
+              const allAuditors = progress.auditors ?? [];
+              const displayedAuditors = role === 'areaManager'
+                ? allAuditors.filter((a) => a.name === AREA_MANAGER_NAME)
+                : allAuditors;
+              if (displayedAuditors.length === 0) return null;
+              const total = displayedAuditors.length;
+              const shown = displayedAuditors.slice(0, 2);
+              const extra = total - 2; // +N for >3 auditors only
+              const tooltipText = displayedAuditors.map((a) => a.name).join(', ');
+              return (
+                <div className="card-row">
+                  <span className="card-label">{total === 1 ? 'Auditor' : 'Auditors'}</span>
+                  <div className="avatar-group">
+                    {shown.map((a, i) => (
+                      <div key={i} className="avatar-tooltip-wrap">
+                        <Avatar name={a.name} size="xs" hasBorder />
+                        <span className="avatar-tooltip">{tooltipText}</span>
+                      </div>
+                    ))}
+                    {total === 1 && <span className="card-meta">{displayedAuditors[0].name}</span>}
+                    {total > 3 && extra > 0 && (
+                      <div className="avatar-sm avatar-more">+{extra}</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )
       )}
@@ -198,7 +212,7 @@ const AuditCard: React.FC<AuditCardProps> = ({
                   <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
                     Move to done
                   </button>
-                  <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
+                  <button className="card-dropdown-item" onClick={() => { setMenuOpen(false); setNotifyModalOpen(true); }}>
                     Notify
                   </button>
                   <button className="card-dropdown-item card-dropdown-item--danger" onClick={() => setMenuOpen(false)}>
@@ -214,6 +228,50 @@ const AuditCard: React.FC<AuditCardProps> = ({
       </div>
 
     </div>
+
+    {notifyModalOpen && (
+      <div className="discard-modal-overlay" onClick={() => setNotifyModalOpen(false)}>
+        <div
+          className="discard-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notify-modal-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="edit-modal-close" aria-label="Close" onClick={() => setNotifyModalOpen(false)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+          <h2 id="notify-modal-title" className="discard-modal-title">Send notification</h2>
+          <p className="discard-modal-body">Let recipients know that you have made changes</p>
+          <textarea
+            className="notify-modal-textarea"
+            placeholder="Add note (optional)"
+            value={notifyNote}
+            onChange={(e) => setNotifyNote(e.target.value)}
+            rows={4}
+          />
+          <div className="discard-modal-actions">
+            <button className="discard-modal-continue" onClick={() => setNotifyModalOpen(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn--filled btn--pill"
+              onClick={() => {
+                setNotifyModalOpen(false);
+                setNotifyNote('');
+                createToast({ message: 'Notification sent', type: 'positive', duration: 3000 });
+              }}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

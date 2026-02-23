@@ -13,9 +13,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 interface ChooseTemplateViewProps {
   templates: Template[];
   onSelect: (template: Template) => void;
+  onUseTemplate: (template: Template) => void;
 }
 
-const ChooseTemplateView: React.FC<ChooseTemplateViewProps> = ({ templates, onSelect }) => {
+const ChooseTemplateView: React.FC<ChooseTemplateViewProps> = ({ templates, onSelect, onUseTemplate }) => {
   const [search, setSearch] = useState('');
 
   const filtered = search.trim()
@@ -26,8 +27,14 @@ const ChooseTemplateView: React.FC<ChooseTemplateViewProps> = ({ templates, onSe
     <div className="choose-template-page">
       <div className="choose-template-top">
         <div className="choose-template-heading">
-          <h1 className="choose-template-title">Choose audit template</h1>
-          <p className="choose-template-subtitle">Select a company-approved template to preview and use.</p>
+          <div className="choose-template-title-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="28" height="28" aria-hidden="true">
+              <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
+            <h1 className="choose-template-title">Choose audit template</h1>
+          </div>
         </div>
         <div className="choose-template-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="#8fa5b2" strokeWidth="2" width="16" height="16" aria-hidden="true">
@@ -46,30 +53,32 @@ const ChooseTemplateView: React.FC<ChooseTemplateViewProps> = ({ templates, onSe
 
       <div className="choose-template-list">
         {filtered.map((t) => (
-          <button key={t.id} className="choose-template-row" onClick={() => onSelect(t)}>
-            <div className="choose-template-row-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#8fa5b2" strokeWidth="1.5" width="28" height="28" aria-hidden="true">
-                <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"></path>
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
-                <polyline points="9 12 11 14 15 10"></polyline>
-              </svg>
-            </div>
+          <div key={t.id} className="choose-template-row" onClick={() => onSelect(t)}>
             <div className="choose-template-row-body">
               <div className="choose-template-row-title-row">
                 <span className="choose-template-row-title">{t.title}</span>
                 <Badge label={t.category} customColor={CATEGORY_COLORS[t.category] ?? '#004851'} size="small" />
               </div>
-              {t.description && (
-                <p className="choose-template-row-desc">{t.description}</p>
-              )}
+              <p className="choose-template-row-desc">{t.description}</p>
               <p className="choose-template-row-meta">
                 {t.sections} sections · {t.questions} questions · {t.createdBy}
               </p>
             </div>
-            <svg className="choose-template-row-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18" aria-hidden="true">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
+            <div className="choose-template-row-actions">
+              <button
+                className="choose-template-use-btn"
+                onClick={(e) => { e.stopPropagation(); onUseTemplate(t); }}
+              >
+                Use template
+              </button>
+              <span className="choose-template-preview-link">
+                Preview
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </span>
+            </div>
+          </div>
         ))}
         {filtered.length === 0 && (
           <p className="choose-template-empty">No templates found.</p>

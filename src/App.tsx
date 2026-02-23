@@ -20,6 +20,7 @@ import StoreSubmissionView from './components/StoreSubmissionView';
 import AssignAuditorsView from './components/AssignAuditorsView';
 import AssignStoresView from './components/AssignStoresView';
 import ReportingDashboard from './components/ReportingDashboard';
+import ReviewAudienceView from './components/ReviewAudienceView';
 import type { SendAuditData } from './components/ReviewAndSendContent';
 import { ToastProvider, useToast } from './components/Toast';
 import type { Template } from './components/TemplateCard';
@@ -27,7 +28,7 @@ import type { CollectionFilter, AuditCollectionFilter } from './components/Audit
 
 type View = 'list' | 'create-template' | 'template-detail' | 'edit-template'
            | 'choose-template' | 'template-overview' | 'review-and-send'
-           | 'assign-auditors' | 'assign-stores' | 'audit-detail' | 'audit-config'
+           | 'assign-auditors' | 'assign-stores' | 'review-audience' | 'audit-detail' | 'audit-config'
            | 'edit-audience-dates' | 'store-submission' | 'reporting';
 
 export interface MockAuditor {
@@ -74,6 +75,7 @@ const INITIAL_TEMPLATES: Template[] = Array.from({ length: 10 }, (_, i) => ({
   publishedOn: 'Published on 24 Jan 2025',
   category: 'Security',
   status: 'library',
+  description: 'Comprehensive fire safety compliance check including extinguishers, exits, and alarm systems. This audit ensures all stores meet regulatory requirements.',
 }));
 
 const SEED_AUDIT_INSTANCES: AuditInstance[] = [
@@ -198,7 +200,9 @@ function AppContent() {
   const [auditInstances, setAuditInstances] = useState<AuditInstance[]>(SEED_AUDIT_INSTANCES);
   const [auditorAssignments, setAuditorAssignments] = useState<AuditorAssignment[]>([]);
   const [selfAuditStores, setSelfAuditStores] = useState<string[]>([]);
+  const [pendingAudienceStores, setPendingAudienceStores] = useState<string[]>([]);
   const [selectedAuditInstance, setSelectedAuditInstance] = useState<AuditInstance | null>(null);
+  const [pendingReviewFormData, setPendingReviewFormData] = useState<SendAuditData | null>(null);
   const [selectedStoreName, setSelectedStoreName] = useState<string>('');
   const [selectedStoreStatus, setSelectedStoreStatus] = useState<string>('');
 
@@ -259,7 +263,6 @@ function AppContent() {
         prev.map((t) => (t.id === editingDraftId ? { ...t, title: draftTitle.trim() || t.title } : t))
       );
       setEditingDraftId(null);
-      setActiveTab(1);
       setView('list');
     } else {
       if (draftTitle.trim()) {
@@ -275,7 +278,6 @@ function AppContent() {
         };
         setReusableTemplates((prev) => [draftTemplate, ...prev]);
       }
-      setActiveTab(1);
       setView('list');
     }
   };
@@ -308,7 +310,6 @@ function AppContent() {
       setReusableTemplates((prev) => prev.filter((t) => t.id !== editingDraftId));
       setEditingDraftId(null);
     }
-    setActiveTab(1);
     setView('list');
     createToast({ message: 'Template draft deleted', type: 'positive', duration: 3000 });
   };
@@ -373,6 +374,11 @@ function AppContent() {
     setView('review-and-send');
   };
 
+  const handleDirectUseTemplate = (template: Template) => {
+    setSelectedAuditTemplate(template);
+    setView('review-and-send');
+  };
+
   const handleBackFromChooseTemplate = () => {
     setView('list');
   };
@@ -383,9 +389,10 @@ function AppContent() {
 
   const handleBackFromReviewAndSend = () => {
     if (!selectedAuditInstance && selectedAuditTemplate) {
-      // Coming from template-overview flow — save as draft
+      // Auto-save as draft, then offer an undo via toast
+      const draftId = `audit-draft-${Date.now()}`;
       const draft: AuditInstance = {
-        id: `audit-draft-${Date.now()}`,
+        id: draftId,
         title: selectedAuditTemplate.title,
         category: selectedAuditTemplate.category,
         sendOutDate: '',
@@ -398,20 +405,52 @@ function AppContent() {
         completedCount: 0,
       };
       setAuditInstances((prev) => [draft, ...prev]);
+      createToast({
+        message: 'Audit saved as draft.',
+        type: 'positive',
+        duration: 6000,
+        action: {
+          label: 'Undo',
+          onClick: () => setAuditInstances((prev) => prev.filter((a) => a.id !== draftId)),
+        },
+      });
+    } else if (selectedAuditInstance) {
+      // Editing an existing draft — auto-save silently
+      const updated: AuditInstance = {
+        ...selectedAuditInstance,
+        sendOutDate: pendingReviewFormData?.sendOutDate ?? selectedAuditInstance.sendOutDate,
+        startDate: pendingReviewFormData?.startDate ?? selectedAuditInstance.startDate,
+        dueDate: pendingReviewFormData?.dueDate ?? selectedAuditInstance.dueDate,
+        recurringDate: pendingReviewFormData?.recurringDate ?? selectedAuditInstance.recurringDate,
+        message: pendingReviewFormData?.message ?? selectedAuditInstance.message,
+        audience: auditorAssignments.length > 0 ? 'auditors' : selfAuditStores.length > 0 ? 'stores' : selectedAuditInstance.audience,
+        stores: auditorAssignments.length > 0
+          ? [...new Set(auditorAssignments.flatMap((a) => a.stores))]
+          : selfAuditStores.length > 0 ? selfAuditStores : selectedAuditInstance.stores,
+        auditors: auditorAssignments.length > 0
+          ? auditorAssignments.map((a) => ({ name: a.auditor.name, initials: a.auditor.initials }))
+          : selectedAuditInstance.auditors,
+        auditorAssignments: auditorAssignments.length > 0 ? [...auditorAssignments] : selectedAuditInstance.auditorAssignments,
+      };
+      setAuditInstances((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
     }
-    // If selectedAuditInstance is set we came from a draft card — it already exists, nothing to create
     setSelectedAuditInstance(null);
     setSelectedAuditTemplate(null);
     setAuditorAssignments([]);
     setSelfAuditStores([]);
+    setPendingReviewFormData(null);
     setActiveTab(0);
     setView('list');
   };
 
+
   // --- Audience assignment handlers ---
 
   const handleAssignAuditors = () => setView('assign-auditors');
-  const handleAssignStores = () => setView('assign-stores');
+  const handleAssignStores = () => {
+    setPendingAudienceStores(selfAuditStores);
+    setView('assign-stores');
+  };
 
   const handleConfirmAuditorAssignments = (assignments: AuditorAssignment[]) => {
     setAuditorAssignments(assignments);
@@ -420,7 +459,12 @@ function AppContent() {
   };
 
   const handleConfirmStoreSelection = (stores: string[]) => {
-    setSelfAuditStores(stores);
+    setPendingAudienceStores(stores);
+    setView('review-audience');
+  };
+
+  const handleSetAudience = () => {
+    setSelfAuditStores(pendingAudienceStores);
     setAuditorAssignments([]);
     setView('review-and-send');
   };
@@ -583,6 +627,10 @@ function AppContent() {
               template={selectedTemplate}
               onEdit={handleEditTemplate}
               onArchive={() => handleArchiveAndReturn(selectedTemplate.id)}
+              onUseTemplate={() => {
+                setSelectedAuditTemplate(selectedTemplate);
+                setView('review-and-send');
+              }}
             />
           )}
         </>
@@ -604,6 +652,7 @@ function AppContent() {
           <ChooseTemplateView
             templates={reusableTemplates.filter((t) => !t.status || t.status === 'library')}
             onSelect={handleSelectAuditTemplate}
+            onUseTemplate={handleDirectUseTemplate}
           />
         </>
       ) : view === 'template-overview' ? (
@@ -624,9 +673,16 @@ function AppContent() {
         />
       ) : view === 'assign-stores' ? (
         <AssignStoresView
-          initialStores={selfAuditStores}
+          initialStores={pendingAudienceStores}
           onConfirm={handleConfirmStoreSelection}
           onCancel={() => setView('review-and-send')}
+        />
+      ) : view === 'review-audience' ? (
+        <ReviewAudienceView
+          templateName={selectedAuditTemplate?.title ?? ''}
+          selectedStores={pendingAudienceStores}
+          onBack={() => setView('assign-stores')}
+          onConfirm={handleSetAudience}
         />
       ) : view === 'audit-detail' ? (
         <>
@@ -688,6 +744,7 @@ function AppContent() {
               onClearAuditors={handleClearAuditors}
               onClearStores={handleClearStores}
               onSend={handleSendAudit}
+              onFormChange={setPendingReviewFormData}
             />
           )}
         </>

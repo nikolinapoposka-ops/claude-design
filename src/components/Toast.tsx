@@ -2,11 +2,17 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 
 type ToastType = 'positive' | 'negative' | 'info';
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastNotification {
   id: number;
   message: string;
   type: ToastType;
   duration?: number;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
@@ -25,10 +31,11 @@ interface ToastProps {
   message: string;
   type: ToastType;
   duration?: number;
+  action?: ToastAction;
   onClose: () => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration = 5000 }) => {
+export const Toast: React.FC<ToastProps> = ({ message, type, action, onClose, duration = 5000 }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, duration);
     return () => clearTimeout(timer);
@@ -58,6 +65,11 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose, duration =
     <div className={`toast toast--${type}`} role="status">
       {icon}
       <span className="toast-message">{message}</span>
+      {action && (
+        <button className="toast-action" onClick={() => { action.onClick(); onClose(); }}>
+          {action.label}
+        </button>
+      )}
       <button className="toast-close" onClick={onClose} aria-label="Dismiss">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -101,6 +113,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode; duration?: num
             message={toast.message}
             type={toast.type}
             duration={toast.duration}
+            action={toast.action}
             onClose={() => removeToast(toast.id)}
           />
         ))}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, Globe, SlidersHorizontal, ArrowUpDown, X } from 'lucide-react';
 import SegmentedControls from './SegmentedControls';
 import AuditCard from './AuditCard';
 import TemplateCard from './TemplateCard';
@@ -162,8 +163,7 @@ const toAuditCardProps = (inst: AuditInstance) => {
         total: storeCount,
         fraction: `${inst.completedCount}/${storeCount}`,
         percentage: Math.round((inst.completedCount / storeCount) * 100),
-        auditors: inst.auditors.slice(0, 2),
-        moreCount: inst.auditors.length > 2 ? inst.auditors.length - 2 : undefined,
+        auditors: inst.auditors,
       },
     };
   }
@@ -188,6 +188,33 @@ const auditCollectionItems: { key: AuditCollectionFilter; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
+type SortKey = 'due-date' | 'priority' | 'completion' | 'alphabetical' | 'date-created' | 'category';
+
+interface AuditFilters {
+  statuses: string[];
+  priority: boolean;
+  expired: boolean;
+  categories: string[];
+  auditTypes: ('self-audit' | 'auditor-led')[];
+}
+const EMPTY_AUDIT_FILTERS: AuditFilters = { statuses: [], priority: false, expired: false, categories: [], auditTypes: [] };
+
+const FILTER_STATUS_OPTIONS = ['Not started', 'In progress', 'Awaiting approval', 'Changes needed'];
+const FILTER_CATEGORY_OPTIONS = ['HR', 'Operations', 'Product', 'Security', 'Training', 'Visual Merchandising'];
+
+const auditSortOptions: { key: SortKey; label: string }[] = [
+  { key: 'due-date',    label: 'Due date (first to last)' },
+  { key: 'priority',    label: 'Priority (highest first)' },
+  { key: 'completion',  label: 'Completion % (lowest first)' },
+  { key: 'alphabetical', label: 'Alphabetically (A - Z)' },
+];
+
+const templateSortOptions: { key: SortKey; label: string }[] = [
+  { key: 'alphabetical', label: 'Alphabetically (A - Z)' },
+  { key: 'date-created', label: 'Date created (newest first)' },
+  { key: 'category',     label: 'Category' },
+];
+
 interface AuditContentProps {
   tab: number;
   onTabChange: (tab: number) => void;
@@ -210,15 +237,28 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
   const [filterOpen, setFilterOpen] = useState(false);
   const [creatorFilter, setCreatorFilter] = useState<string | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+  const [sortBy, setSortBy] = useState<SortKey | null>(null);
+  const [sortReverse, setSortReverse] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+  const [auditFilterPanelOpen, setAuditFilterPanelOpen] = useState(false);
+  const [pendingFilters, setPendingFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
 
   useEffect(() => { setSelectedTab(tab); }, [tab]);
 
-  useEffect(() => { setCreatorFilter(null); }, [collectionFilter, auditCollectionFilter, selectedTab]);
+  useEffect(() => {
+    setCreatorFilter(null); setSortBy(null); setSortReverse(false);
+    setAppliedFilters(EMPTY_AUDIT_FILTERS); setPendingFilters(EMPTY_AUDIT_FILTERS);
+  }, [collectionFilter, auditCollectionFilter, selectedTab]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setFilterOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -233,13 +273,61 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
 
   const isTemplates = selectedTab === 1;
 
+  const sortedAuditInstances = useMemo(() => {
+    const base = !sortBy ? auditInstances : [...auditInstances].sort((a, b) => {
+      if (sortBy === 'due-date')   return (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99');
+      if (sortBy === 'priority')   return (b.isPriority ? 1 : 0) - (a.isPriority ? 1 : 0);
+      if (sortBy === 'completion') {
+        const ra = a.stores.length ? a.completedCount / a.stores.length : 0;
+        const rb = b.stores.length ? b.completedCount / b.stores.length : 0;
+        return ra - rb;
+      }
+      if (sortBy === 'alphabetical') return a.title.localeCompare(b.title);
+      return 0;
+    });
+    return sortReverse ? [...base].reverse() : base;
+  }, [auditInstances, sortBy, sortReverse]);
+
+  const typeFilteredAuditInstances = useMemo(() => {
+    if (appliedFilters.auditTypes.length === 0) return sortedAuditInstances;
+    return sortedAuditInstances.filter((i) => {
+      const type = i.audience === 'stores' ? 'self-audit' : 'auditor-led';
+      return appliedFilters.auditTypes.includes(type);
+    });
+  }, [sortedAuditInstances, appliedFilters.auditTypes]);
+
+  const auditFilteredInstances = useMemo(() => {
+    let base = typeFilteredAuditInstances;
+    if (appliedFilters.priority) base = base.filter((i) => i.isPriority);
+    if (appliedFilters.categories.length > 0) base = base.filter((i) => appliedFilters.categories.includes(i.category));
+    if (appliedFilters.statuses.length > 0) {
+      base = base.filter((i) => {
+        if (appliedFilters.statuses.includes('Not started') && i.completedCount === 0 && i.status === 'sent') return true;
+        if (appliedFilters.statuses.includes('In progress') && i.completedCount > 0 && i.completedCount < i.stores.length) return true;
+        return false;
+      });
+    }
+    return base;
+  }, [typeFilteredAuditInstances, appliedFilters]);
+
+  const filteredSampleCards = appliedFilters.auditTypes.length === 0
+    ? sampleAuditCards
+    : sampleAuditCards.filter((card) => {
+        const hasAuditor =
+          ('auditor' in card && !!(card as { auditor?: unknown }).auditor) ||
+          ('progress' in card && Array.isArray((card as { progress?: { auditors?: unknown[] } }).progress?.auditors) &&
+            ((card as { progress?: { auditors?: unknown[] } }).progress?.auditors?.length ?? 0) > 0);
+        const cardType: 'self-audit' | 'auditor-led' = hasAuditor ? 'auditor-led' : 'self-audit';
+        return appliedFilters.auditTypes.includes(cardType);
+      });
+
   // Audit instance filtering
   // Audits where Emily is assigned as an auditor (she's a recipient)
   // Area Manager sees:
   //   - store-audience audits (sent/scheduled, she may be the sender)
   //   - auditor-audience audits only where she is an assigned auditor
   const areaManagerOverviewAudits = role === 'areaManager'
-    ? auditInstances.filter((i) => {
+    ? auditFilteredInstances.filter((i) => {
         if (i.status !== 'sent' && i.status !== 'scheduled') return false;
         if (i.audience === 'stores') return true;
         if (i.audience === 'auditors') return i.auditorAssignments?.some((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID) ?? false;
@@ -248,29 +336,37 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     : [];
 
   const storeAudits = role === 'store'
-    ? auditInstances.filter((i) => i.stores.includes(STORE_NAME))
+    ? auditFilteredInstances.filter((i) => i.stores.includes(STORE_NAME))
     : [];
 
   const filteredAuditCards = (() => {
-    const sent      = auditInstances.filter((i) => i.status === 'sent');
-    const scheduled = auditInstances.filter((i) => i.status === 'scheduled');
-    const drafts    = auditInstances.filter((i) => i.status === 'draft');
+    const sent      = auditFilteredInstances.filter((i) => i.status === 'sent');
+    const scheduled = auditFilteredInstances.filter((i) => i.status === 'scheduled');
+    const drafts    = auditFilteredInstances.filter((i) => i.status === 'draft');
     switch (auditCollectionFilter) {
       case 'overview':
-        if (role === 'areaManager') return [...areaManagerOverviewAudits.map((i) => toAuditCardProps(projectForAM(i))), ...sampleAuditCards];
-        if (role === 'store')       return [...storeAudits.map(toAuditCardProps), ...sampleAuditCards];
-        return [...sent.map(toAuditCardProps), ...sampleAuditCards];
+        if (role === 'areaManager') return [...areaManagerOverviewAudits.map((i) => toAuditCardProps(projectForAM(i))), ...filteredSampleCards];
+        if (role === 'store')       return [...storeAudits.map(toAuditCardProps), ...filteredSampleCards];
+        return [...sent.map(toAuditCardProps), ...filteredSampleCards];
       case 'sent':          return sent.map(toAuditCardProps);
       case 'scheduled':     return scheduled.map(toAuditCardProps);
       case 'audit-drafts':  return drafts.map(toAuditCardProps);
-      case 'all':           return [...auditInstances.map(toAuditCardProps), ...sampleAuditCards];
+      case 'all':           return [...auditFilteredInstances.map(toAuditCardProps), ...filteredSampleCards];
       case 'assigned-to-me':
         if (role === 'areaManager') return areaManagerOverviewAudits.filter((i) => i.audience === 'auditors').map((i) => toAuditCardProps(projectForAM(i)));
         if (role === 'store')       return storeAudits.map(toAuditCardProps);
-        return sampleAuditCards;
-      default:              return sampleAuditCards;
+        return filteredSampleCards;
+      default:              return filteredSampleCards;
     }
   })() as Array<ReturnType<typeof toAuditCardProps> | (typeof sampleAuditCards)[number]>;
+
+  const appliedAuditFilterCount =
+    appliedFilters.statuses.length +
+    (appliedFilters.priority ? 1 : 0) +
+    (appliedFilters.expired ? 1 : 0) +
+    appliedFilters.categories.length +
+    appliedFilters.auditTypes.length;
+  const hasAppliedAuditFilters = appliedAuditFilterCount > 0;
 
   // Audit collection counts (show 99+ for mock items, real counts for instances)
   const auditCountsMap: Record<AuditCollectionFilter, number> = {
@@ -301,12 +397,19 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     archived: archivedCount,
   };
 
-  const displayedTemplates =
-    collectionFilter === 'library'
+  const displayedTemplates = (() => {
+    const base = collectionFilter === 'library'
       ? templates.filter((t) => !t.status || t.status === 'library')
       : collectionFilter === 'drafts'
       ? templates.filter((t) => t.status === 'draft')
       : templates.filter((t) => t.status === 'archived');
+    const sorted = !sortBy ? base
+      : sortBy === 'alphabetical'  ? [...base].sort((a, b) => a.title.localeCompare(b.title))
+      : sortBy === 'date-created'  ? [...base].sort((a, b) => b.id.localeCompare(a.id))
+      : sortBy === 'category'      ? [...base].sort((a, b) => a.category.localeCompare(b.category))
+      : base;
+    return sortReverse ? [...sorted].reverse() : sorted;
+  })();
 
   const uniqueCreators = Array.from(new Set(displayedTemplates.map((t) => t.createdBy)));
 
@@ -369,6 +472,114 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
         </>
       )}
 
+      {/* Audit filter panel */}
+      {auditFilterPanelOpen && !isTemplates && (
+        <>
+          <div className="collection-backdrop" onClick={() => setAuditFilterPanelOpen(false)} />
+          <div className="audit-filter-panel">
+            <div className="audit-filter-panel-header">
+              <span className="audit-filter-panel-title">Filters</span>
+              <button className="collection-sidebar-close" onClick={() => setAuditFilterPanelOpen(false)} aria-label="Close">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="audit-filter-panel-body">
+              <div className="audit-filter-section">
+                <span className="audit-filter-section-title">Audit type</span>
+                <div className="audit-filter-radio-group">
+                  {(['self-audit', 'auditor-led'] as const).map((type) => (
+                    <label key={type} className="audit-filter-checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={pendingFilters.auditTypes.includes(type)}
+                        onChange={() => setPendingFilters((prev) => ({
+                          ...prev,
+                          auditTypes: prev.auditTypes.includes(type)
+                            ? prev.auditTypes.filter((t) => t !== type)
+                            : [...prev.auditTypes, type],
+                        }))}
+                      />
+                      <span>{type === 'self-audit' ? 'Self-audit' : 'Auditor-led'}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="audit-filter-divider" />
+              <div className="audit-filter-section">
+                <span className="audit-filter-section-title">Status</span>
+                <div className="audit-filter-checkbox-grid">
+                  {FILTER_STATUS_OPTIONS.map((s) => (
+                    <label key={s} className="audit-filter-checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={pendingFilters.statuses.includes(s)}
+                        onChange={() => setPendingFilters((prev) => ({
+                          ...prev,
+                          statuses: prev.statuses.includes(s) ? prev.statuses.filter((x) => x !== s) : [...prev.statuses, s],
+                        }))}
+                      />
+                      <span>{s}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="audit-filter-divider" />
+              <label className="audit-filter-checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={pendingFilters.priority}
+                  onChange={() => setPendingFilters((prev) => ({ ...prev, priority: !prev.priority }))}
+                />
+                <span>Priority</span>
+              </label>
+
+              <div className="audit-filter-divider" />
+              <label className="audit-filter-checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={pendingFilters.expired}
+                  onChange={() => setPendingFilters((prev) => ({ ...prev, expired: !prev.expired }))}
+                />
+                <span>Expired</span>
+              </label>
+
+              <div className="audit-filter-divider" />
+              <div className="audit-filter-section">
+                <span className="audit-filter-section-title">Categories</span>
+                <div className="audit-filter-checkbox-grid">
+                  {FILTER_CATEGORY_OPTIONS.map((c) => (
+                    <label key={c} className="audit-filter-checkbox-item">
+                      <input
+                        type="checkbox"
+                        checked={pendingFilters.categories.includes(c)}
+                        onChange={() => setPendingFilters((prev) => ({
+                          ...prev,
+                          categories: prev.categories.includes(c) ? prev.categories.filter((x) => x !== c) : [...prev.categories, c],
+                        }))}
+                      />
+                      <span>{c}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="audit-filter-panel-footer">
+              <button className="audit-filter-clear-btn" onClick={() => { setAppliedFilters(EMPTY_AUDIT_FILTERS); setPendingFilters(EMPTY_AUDIT_FILTERS); setAuditFilterPanelOpen(false); }}>
+                Clear All
+              </button>
+              <button
+                className="btn btn--filled btn--pill"
+                onClick={() => { setAppliedFilters(pendingFilters); setAuditFilterPanelOpen(false); }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Row 1: Segmented controls — HQ only (Audits + Templates) */}
       {role === 'hq' && (
         <SegmentedControls
@@ -407,30 +618,30 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
             {chevronIcon}
           </button>
           <button className="tool-button" data-test-id="btn-search">
-            <svg className="icon-sm" viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
+            <Search className="icon-sm" strokeWidth={2} />
           </button>
           <button className="tool-button" data-test-id="btn-globe">
-            <svg className="icon-sm" viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"></path>
-            </svg>
+            <Globe className="icon-sm" strokeWidth={2} />
           </button>
           <div style={{ position: 'relative' }} ref={filterRef}>
             <button
-              className={`tool-button${creatorFilter ? ' tool-button--active' : ''}`}
+              className={`tool-button${(creatorFilter || hasAppliedAuditFilters) ? ' tool-button--active' : ''}`}
               data-test-id="btn-filter"
-              onClick={() => isTemplates && setFilterOpen((o) => !o)}
+              onClick={() => {
+                if (isTemplates) {
+                  setFilterOpen((o) => !o);
+                } else {
+                  setPendingFilters(appliedFilters);
+                  setAuditFilterPanelOpen(true);
+                }
+              }}
             >
-              <svg className="icon-sm" viewBox="0 0 24 24" fill="none" stroke={creatorFilter ? 'var(--qui-color-primary-main)' : '#465d6d'} strokeWidth="2">
-                <line x1="4" y1="6" x2="20" y2="6"></line>
-                <line x1="8" y1="12" x2="16" y2="12"></line>
-                <line x1="11" y1="18" x2="13" y2="18"></line>
-              </svg>
-              {creatorFilter && <span className="tool-button-badge" />}
+              <SlidersHorizontal className="icon-sm" strokeWidth={2} stroke={(creatorFilter || hasAppliedAuditFilters) ? 'var(--qui-color-primary-main)' : '#465d6d'} />
+              {(creatorFilter || hasAppliedAuditFilters) && (
+                <span className="tool-button-badge">
+                  {!isTemplates && appliedAuditFilterCount > 0 ? appliedAuditFilterCount : null}
+                </span>
+              )}
             </button>
             {filterOpen && isTemplates && (
               <div className="filter-dropdown">
@@ -466,16 +677,57 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
               </div>
             )}
           </div>
-          <button className="tool-button" data-test-id="btn-sort">
-            <svg className="icon-sm" viewBox="0 0 24 24" fill="none" stroke="#465d6d" strokeWidth="2">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-          </button>
+          <div style={{ position: 'relative' }} ref={sortRef}>
+            <button
+              className={`tool-button${(sortBy !== null || sortReverse) ? ' tool-button--active' : ''}`}
+              data-test-id="btn-sort"
+              onClick={() => setSortOpen((o) => !o)}
+            >
+              <ArrowUpDown className="icon-sm" strokeWidth={2} stroke={(sortBy !== null || sortReverse) ? 'var(--qui-color-primary-main)' : '#465d6d'} />
+              {(sortBy !== null || sortReverse) && <span className="tool-button-badge" />}
+            </button>
+            {sortOpen && (
+              <div className="sort-panel">
+                <div className="sort-panel-header">
+                  <span className="sort-panel-title">Sort</span>
+                  <button className="sort-panel-close" onClick={() => setSortOpen(false)} aria-label="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div className="sort-panel-options">
+                  {(isTemplates ? templateSortOptions : auditSortOptions).map((opt, i, arr) => (
+                    <React.Fragment key={opt.key}>
+                      <div
+                        className={`sort-radio-item${sortBy === opt.key ? ' sort-radio-item--selected' : ''}`}
+                        onClick={() => setSortBy(sortBy === opt.key ? null : opt.key)}
+                      >
+                        <span className={`sort-radio-circle${sortBy === opt.key ? ' sort-radio-circle--selected' : ''}`}>
+                          {sortBy === opt.key && (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" width="12" height="12">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          )}
+                        </span>
+                        <span className="sort-radio-label">{opt.label}</span>
+                      </div>
+                      {i < arr.length - 1 && <div className="sort-panel-divider" />}
+                    </React.Fragment>
+                  ))}
+                </div>
+                <div className="sort-panel-divider" />
+                <label className="sort-reverse-row">
+                  <span className="sort-reverse-label">Reverse</span>
+                  <span className="toggle-switch">
+                    <input type="checkbox" checked={sortReverse} onChange={e => setSortReverse(e.target.checked)} />
+                    <span className="toggle-slider" />
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

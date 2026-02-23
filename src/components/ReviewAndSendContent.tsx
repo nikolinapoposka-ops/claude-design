@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Badge } from '@quinyx/ui';
 import type { Template } from './TemplateCard';
 import type { AuditorAssignment } from '../App';
@@ -28,6 +28,7 @@ interface ReviewAndSendContentProps {
   onClearAuditors: () => void;
   onClearStores: () => void;
   onSend: (data: SendAuditData) => void;
+  onFormChange?: (data: SendAuditData) => void;
 }
 
 const formatSendOutDate = (value: string) => {
@@ -45,6 +46,7 @@ const ReviewAndSendContent: React.FC<ReviewAndSendContentProps> = ({
   onClearAuditors,
   onClearStores,
   onSend,
+  onFormChange,
 }) => {
   const sendOutDateRef = useRef<HTMLInputElement>(null);
   const recurringDateRef = useRef<HTMLInputElement>(null);
@@ -58,6 +60,21 @@ const ReviewAndSendContent: React.FC<ReviewAndSendContentProps> = ({
   const [message, setMessage] = useState('');
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
+  const [approver, setApprover] = useState('');
+  const [approverDropdownOpen, setApproverDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    onFormChange?.({ sendOutDate, recurringDate, startDate, dueDate, message });
+  }, [sendOutDate, recurringDate, startDate, dueDate, message]);
+
+  const MOCK_APPROVERS = [
+    { id: 'ed', name: 'Emily Davis',   initials: 'ED', role: 'Area Manager' },
+    { id: 'js', name: 'John Smith',    initials: 'JS', role: 'Regional Manager' },
+    { id: 'sj', name: 'Sarah Johnson', initials: 'SJ', role: 'Operations Lead' },
+    { id: 'mw', name: 'Mike Williams', initials: 'MW', role: 'Senior Auditor' },
+  ];
+
+  const selectedApprover = MOCK_APPROVERS.find((a) => a.id === approver) ?? null;
 
   const hasAuditors = auditorAssignments.length > 0;
   const hasStores = selfAuditStores.length > 0;
@@ -220,6 +237,55 @@ const ReviewAndSendContent: React.FC<ReviewAndSendContentProps> = ({
                     </button>
                   </div>
                 </div>
+                {/* Approver field */}
+                <div className="audience-approver-field">
+                  <div className="audience-approver-select-wrap">
+                    <button
+                      className="audience-approver-btn"
+                      onClick={() => setApproverDropdownOpen((v) => !v)}
+                    >
+                      {selectedApprover ? (
+                        <>
+                          <div className="avatar-sm">{selectedApprover.initials}</div>
+                          <span className="audience-approver-name">{selectedApprover.name}</span>
+                        </>
+                      ) : (
+                        <span className="audience-approver-placeholder">Select approver</span>
+                      )}
+                      <svg viewBox="0 0 10 6" fill="currentColor" width="11" height="11"
+                        style={{ marginLeft: 'auto', flexShrink: 0, transform: approverDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', color: '#8fa5b2' }}>
+                        <path d="M0 0l5 6 5-6z" />
+                      </svg>
+                    </button>
+                    {approverDropdownOpen && (
+                      <>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 99 }} onClick={() => setApproverDropdownOpen(false)} />
+                        <div className="audience-approver-menu">
+                          <button
+                            className={`audience-approver-option${!approver ? ' audience-approver-option--selected' : ''}`}
+                            onClick={() => { setApprover(''); setApproverDropdownOpen(false); }}
+                          >
+                            <span className="audience-approver-none">No approver</span>
+                          </button>
+                          {MOCK_APPROVERS.map((a) => (
+                            <button
+                              key={a.id}
+                              className={`audience-approver-option${approver === a.id ? ' audience-approver-option--selected' : ''}`}
+                              onClick={() => { setApprover(a.id); setApproverDropdownOpen(false); }}
+                            >
+                              <div className="avatar-sm">{a.initials}</div>
+                              <div className="audience-approver-option-info">
+                                <span className="audience-approver-option-name">{a.name}</span>
+                                <span className="audience-approver-option-role">{a.role}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
                 <div className="audience-summary-switch">
                   <button
                     className="audience-summary-switch-toggle"

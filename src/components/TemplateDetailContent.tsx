@@ -16,6 +16,7 @@ interface TemplateDetailContentProps {
   template: Template;
   onEdit?: () => void;
   onArchive?: () => void;
+  onUseTemplate?: () => void;
 }
 
 const MOCK_SECTIONS = [
@@ -67,7 +68,7 @@ const MOCK_SECTIONS = [
   },
 ];
 
-const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template, onEdit, onArchive }) => {
+const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template, onEdit, onArchive, onUseTemplate }) => {
   const { role } = useRole();
   const [moreInfoOpen, setMoreInfoOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Set<number>>(new Set([1]));
@@ -298,7 +299,7 @@ const TemplateDetailContent: React.FC<TemplateDetailContentProps> = ({ template,
                 Edit
               </button>
             )}
-            <button className="btn btn--outlined btn--pill">
+            <button className="btn btn--outlined btn--pill" onClick={onUseTemplate}>
               Use this template
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
                 <polyline points="9 18 15 12 9 6"></polyline>

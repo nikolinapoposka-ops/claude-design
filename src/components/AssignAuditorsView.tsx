@@ -123,6 +123,14 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
     setAssignments({});
   };
 
+  const handleQuickAssignAll = () => {
+    const next: Record<string, string[]> = {};
+    for (const auditor of visibleAuditors) {
+      next[auditor.id] = [...visibleAllStores];
+    }
+    setAssignments(next);
+  };
+
   const handleConfirm = () => {
     const result: AuditorAssignment[] = visibleAuditors
       .filter((a) => (assignments[a.id] ?? []).length > 0)
@@ -147,10 +155,21 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
             <p className="assign-page-subtitle">Select an auditor and assign stores individually</p>
           </div>
         </div>
-        <div className="assign-header-pills">
-          <span className="assign-pill assign-pill--teal">{totalStores} stores</span>
-          <span className="assign-pill assign-pill--teal">{totalAssignments} assignments</span>
-        </div>
+      </div>
+
+      {/* Quick assign / unassign banner */}
+      <div className="assign-quick-banner">
+        <button
+          className="assign-quick-btn"
+          onClick={totalAssignments === 0 ? handleQuickAssignAll : handleClearAll}
+        >
+          {totalAssignments === 0 ? 'Assign all' : 'Unassign all'}
+        </button>
+        <span className="assign-quick-banner-text">
+          {totalAssignments === 0
+            ? 'Assign all auditors and stores at once.'
+            : 'Remove all current assignments.'}
+        </span>
       </div>
 
       {/* Body: 3 columns */}
@@ -311,9 +330,6 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
         <div className="assign-right">
           <div className="assign-summary-header">
             <span className="assign-summary-title">Assignment Summary</span>
-            {totalAssignments > 0 && (
-              <button className="assign-clear-all-btn" onClick={handleClearAll}>Clear All</button>
-            )}
           </div>
 
           {totalAssignments === 0 ? (

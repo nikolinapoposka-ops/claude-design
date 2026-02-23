@@ -38,6 +38,7 @@ export interface QuestionResult {
   maxScore: number;
   isNA: boolean;
   followUpTask?: string;
+  followUpTaskStatus?: 'open' | 'resolved';
 }
 
 export interface SectionResult {
@@ -51,8 +52,10 @@ export interface StoreAuditResult {
   auditId: string;
   auditor: string;
   date: string;
+  dueDate: string;
   status: AuditStatus;
   overallScore: number;
+  isOverdue: boolean;
   sections: SectionResult[];
 }
 
@@ -246,13 +249,20 @@ function buildQuestions(
     const followUpTask =
       answer === 'No' ? `Rectify: ${def.text}` :
       answer === 'Partially' ? `Review: ${def.text}` : undefined;
-    return { id: `q-${i}`, text: def.text, answer, scoreValue, maxScore: def.maxScore, isNA: false, followUpTask };
+    // 'Partially' answers are treated as resolved (corrective action taken),
+    // 'No' answers alternate open/resolved based on index
+    const followUpTaskStatus: 'open' | 'resolved' | undefined =
+      answer === 'Partially' ? 'resolved' :
+      answer === 'No' ? (i % 2 === 0 ? 'open' : 'resolved') : undefined;
+    return { id: `q-${i}`, text: def.text, answer, scoreValue, maxScore: def.maxScore, isNA: false, followUpTask, followUpTaskStatus };
   });
 }
 
 function avg(nums: number[]): number {
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 function buildResult(
   storeId: string,
@@ -261,6 +271,7 @@ function buildResult(
   scores: number[],
   completedDate: string,
   auditStatus: AuditStatus,
+  auditDueDate: string,
 ): StoreAuditResult {
   const sNames = SECTION_NAMES[templateId];
   const qDefs  = QUESTION_DEFS[templateId];
@@ -276,13 +287,17 @@ function buildResult(
     isCompleted ? 'done' :
     auditStatus === 'in-progress' ? 'in-progress' : 'not-started';
 
+  const isOverdue = status !== 'done' && !!auditDueDate && auditDueDate < TODAY;
+
   return {
     storeId,
     auditId,
     auditor: AUDITORS[storeId] || 'Unknown',
     date: completedDate,
+    dueDate: auditDueDate,
     status,
     overallScore: avg(scores),
+    isOverdue,
     sections,
   };
 }
@@ -299,7 +314,7 @@ export const STORE_AUDIT_RESULTS: StoreAuditResult[] = Object.entries(ALL_SCORES
     Object.entries(storeMap).flatMap(([storeId, auditMap]) =>
       Object.entries(auditMap).map(([auditId, scores]) => {
         const audit = REPORT_AUDITS.find((a) => a.id === auditId)!;
-        return buildResult(storeId, auditId, templateId, scores, completionDate(storeId, auditId), audit.status);
+        return buildResult(storeId, auditId, templateId, scores, completionDate(storeId, auditId), audit.status, audit.date);
       })
     )
 );

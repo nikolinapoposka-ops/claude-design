@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line,
+  LineChart, Line, ReferenceLine, Cell,
 } from 'recharts';
 import { useRole } from '../context/RoleContext';
 import {
@@ -82,11 +82,11 @@ const QuestionRow: React.FC<{ question: StoreAuditResult['sections'][0]['questio
     </div>
     {question.followUpTask && (
       <div className="rp-question-task">
-        <span className="rp-task-badge">
+        <span className={`rp-task-badge${question.followUpTaskStatus === 'resolved' ? ' rp-task-badge--resolved' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
             <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
           </svg>
-          Follow-up
+          {question.followUpTaskStatus === 'resolved' ? 'Resolved' : 'Open'}
         </span>
         <span className="rp-task-text">{question.followUpTask}</span>
       </div>
@@ -96,7 +96,8 @@ const QuestionRow: React.FC<{ question: StoreAuditResult['sections'][0]['questio
 
 const SectionAccordion: React.FC<{ section: SectionResult; storeId: string }> = ({ section }) => {
   const [open, setOpen] = useState(false);
-  const taskCount = section.questions.filter(q => q.followUpTask).length;
+  const openTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
+  const resolvedTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
   return (
     <div className="rp-section-accordion">
       <div className="rp-section-row" onClick={() => setOpen(v => !v)}>
@@ -105,7 +106,8 @@ const SectionAccordion: React.FC<{ section: SectionResult; storeId: string }> = 
         </svg>
         <span className="rp-section-name">{section.name}</span>
         <div className="rp-section-score-wrap"><ScoreBar score={section.score} /></div>
-        {taskCount > 0 && <span className="rp-task-count">{taskCount} task{taskCount > 1 ? 's' : ''}</span>}
+        {openTaskCount > 0 && <span className="rp-task-count">{openTaskCount} open</span>}
+        {resolvedTaskCount > 0 && <span className="rp-task-count rp-task-count--resolved">{resolvedTaskCount} resolved</span>}
       </div>
       {open && (
         <div className="rp-questions-body">
@@ -126,7 +128,9 @@ const StoreRow: React.FC<{
   comparisonResult?: StoreAuditResult; comparisonAuditName?: string; primaryAuditName?: string;
 }> = ({ result, storeName, areaName, comparisonResult, comparisonAuditName, primaryAuditName }) => {
   const [open, setOpen] = useState(false);
-  const taskCount = result.sections.flatMap(s => s.questions).filter(q => q.followUpTask).length;
+  const allQuestions = result.sections.flatMap(s => s.questions);
+  const openTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
+  const resolvedTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
   return (
     <div className={`rp-store-block ${open ? 'rp-store-block--open' : ''}`}>
       <div className="rp-store-row" onClick={() => setOpen(v => !v)}>
@@ -156,16 +160,28 @@ const StoreRow: React.FC<{
           )}
         </div>
         <div className="rp-store-status">
-          <span className={`rp-status-badge ${statusClass(result.status)}`}>{statusLabel(result.status)}</span>
+          <span className={`rp-status-badge ${result.isOverdue ? 'rp-status--overdue' : statusClass(result.status)}`}>
+            {result.isOverdue ? 'Overdue' : statusLabel(result.status)}
+          </span>
         </div>
-        {taskCount > 0 && (
+        {(openTaskCount > 0 || resolvedTaskCount > 0) && (
           <div className="rp-store-tasks">
-            <span className="rp-followup-badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-              </svg>
-              {taskCount}
-            </span>
+            {openTaskCount > 0 && (
+              <span className="rp-followup-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                {openTaskCount} open
+              </span>
+            )}
+            {resolvedTaskCount > 0 && (
+              <span className="rp-followup-badge rp-followup-badge--resolved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                {resolvedTaskCount} done
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -239,7 +255,9 @@ const StoreHistoryRow: React.FC<{
   score: number; status: string; result: StoreAuditResult;
 }> = ({ auditName, templateName, date, score, status, result }) => {
   const [open, setOpen] = useState(false);
-  const taskCount = result.sections.flatMap(s => s.questions).filter(q => q.followUpTask).length;
+  const allQuestions = result.sections.flatMap(s => s.questions);
+  const openTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
+  const resolvedTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
   return (
     <div className={`rp-store-block ${open ? 'rp-store-block--open' : ''}`}>
       <div className="rp-store-row" onClick={() => setOpen(v => !v)}>
@@ -256,14 +274,24 @@ const StoreHistoryRow: React.FC<{
         <div className="rp-store-status">
           <span className={`rp-status-badge ${statusClass(status)}`}>{statusLabel(status)}</span>
         </div>
-        {taskCount > 0 && (
+        {(openTaskCount > 0 || resolvedTaskCount > 0) && (
           <div className="rp-store-tasks">
-            <span className="rp-followup-badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-              </svg>
-              {taskCount}
-            </span>
+            {openTaskCount > 0 && (
+              <span className="rp-followup-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                {openTaskCount} open
+              </span>
+            )}
+            {resolvedTaskCount > 0 && (
+              <span className="rp-followup-badge rp-followup-badge--resolved">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+                  <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                {resolvedTaskCount} done
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -448,6 +476,51 @@ const ReportingDashboard: React.FC = () => {
       }));
   }, [singleStoreMode, focusedStore, allVisibleResults]);
 
+  // When a template is selected in single-store mode, filter history to that template
+  const storeHistoryChartData = useMemo(() => {
+    if (!selectedTemplateId) return storeHistoryData;
+    return storeHistoryData.filter(h => {
+      const audit = REPORT_AUDITS.find(a => a.id === h.result.auditId);
+      return audit?.templateId === selectedTemplateId;
+    });
+  }, [storeHistoryData, selectedTemplateId]);
+
+  // Compliance rate chart data (% of stores that completed each audit period)
+  const complianceRateData = useMemo(() => {
+    if (singleStoreMode) return [];
+    if (selectedTemplateId) {
+      // When template selected: compliance rate per period
+      return availableAudits.map(audit => {
+        const total = filteredStores.length;
+        const completed = STORE_AUDIT_RESULTS.filter(
+          r => r.auditId === audit.id && filteredStoreIds.has(r.storeId) && r.status === 'done'
+        ).length;
+        return {
+          name: audit.name
+            .replace('Safety Audit ', '')
+            .replace('Ops Review ', '')
+            .replace('VM Audit ', ''),
+          rate: total ? Math.round((completed / total) * 100) : 0,
+        };
+      });
+    }
+    // Default: most recent audit per template, compliance rate
+    return REPORT_TEMPLATES.map(template => {
+      const latest = REPORT_AUDITS
+        .filter(a => a.templateId === template.id)
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      if (!latest) return null;
+      const total = filteredStores.length;
+      const completed = STORE_AUDIT_RESULTS.filter(
+        r => r.auditId === latest.id && filteredStoreIds.has(r.storeId) && r.status === 'done'
+      ).length;
+      return {
+        name: template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', ''),
+        rate: total ? Math.round((completed / total) * 100) : 0,
+      };
+    }).filter(Boolean) as { name: string; rate: number }[];
+  }, [singleStoreMode, selectedTemplateId, availableAudits, filteredStores, filteredStoreIds]);
+
   // HQ/AM default: area table rows
   const areaTableData = useMemo(() => {
     return visibleAreas.map(area => {
@@ -485,7 +558,8 @@ const ReportingDashboard: React.FC = () => {
   const completedCount = kpiResults.filter(r => r.status === 'done').length;
   const totalCount = filteredStores.length;
   const completionRate = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-  const followUpCount = kpiResults.flatMap(r => r.sections.flatMap(s => s.questions)).filter(q => q.followUpTask).length;
+  const followUpCount = kpiResults.flatMap(r => r.sections.flatMap(s => s.questions)).filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
+  const overdueCount = kpiResults.filter(r => r.isOverdue).length;
   const atRiskCount = kpiResults.filter(r => r.overallScore < 75).length;
 
   // Previous period trend
@@ -602,8 +676,8 @@ const ReportingDashboard: React.FC = () => {
         />
         <KPITile
           label="Completion Rate" value={`${completionRate}%`}
-          sub={`${completedCount} of ${totalCount} stores`}
-          accent={completionRate >= 80 ? 'pass' : completionRate >= 60 ? 'risk' : 'fail'}
+          sub={overdueCount > 0 ? `${completedCount} of ${totalCount} stores · ${overdueCount} overdue` : `${completedCount} of ${totalCount} stores`}
+          accent={overdueCount > 0 ? 'fail' : completionRate >= 80 ? 'pass' : completionRate >= 60 ? 'risk' : 'fail'}
           icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>}
         />
         <KPITile
@@ -622,7 +696,7 @@ const ReportingDashboard: React.FC = () => {
 
       {/* ── Charts ── */}
       <div className="rp-charts-row">
-        {/* Left chart: default = template comparison, with template = trend over audits */}
+        {/* Left chart: default = template comparison, single-store + template = section breakdown, multi-store + template = score trend */}
         <div className="rp-chart-card">
           {isDefault ? (
             <>
@@ -640,7 +714,27 @@ const ReportingDashboard: React.FC = () => {
                 </BarChart>
               </ResponsiveContainer>
             </>
-          ) : trendData.length > 1 ? (
+          ) : singleStoreMode && sectionData.length > 0 ? (
+            <>
+              <div className="rp-chart-header">
+                <div className="rp-chart-title">Section breakdown</div>
+                <div className="rp-chart-sub">
+                  {selectedAuditId
+                    ? `Scores by section — ${REPORT_AUDITS.find(a => a.id === selectedAuditId)?.name}`
+                    : `Avg score by section — ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`}
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={sectionData} layout="vertical" margin={{ top: 8, right: 40, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7a85' }} />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Bar dataKey="avgScore" fill="#1565c0" radius={[0, 3, 3, 0]} maxBarSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          ) : !singleStoreMode && trendData.length > 1 ? (
             <>
               <div className="rp-chart-header">
                 <div className="rp-chart-title">Score trend</div>
@@ -661,16 +755,20 @@ const ReportingDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Right chart: store role = personal trend line, others = section breakdown */}
+        {/* Right chart: store mode = score history (filtered by template if selected), specific audit = section breakdown, otherwise = compliance rate */}
         <div className="rp-chart-card">
-          {singleStoreMode && isDefault ? (
+          {singleStoreMode && !selectedAuditId ? (
             <>
               <div className="rp-chart-header">
                 <div className="rp-chart-title">{role === 'store' ? 'Your score history' : 'Store score history'}</div>
-                <div className="rp-chart-sub">{focusedStore?.name ?? 'Selected store'} · all completed audits</div>
+                <div className="rp-chart-sub">
+                  {selectedTemplateId
+                    ? `${focusedStore?.name ?? 'Store'} · ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`
+                    : `${focusedStore?.name ?? 'Selected store'} · all completed audits`}
+                </div>
               </div>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={storeHistoryData.map(h => ({ name: h.chartName, score: h.result.overallScore }))} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+                <LineChart data={storeHistoryChartData.map(h => ({ name: h.chartName, score: h.result.overallScore }))} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
@@ -679,7 +777,7 @@ const ReportingDashboard: React.FC = () => {
                 </LineChart>
               </ResponsiveContainer>
             </>
-          ) : sectionData.length > 0 ? (
+          ) : !singleStoreMode && selectedAuditId && sectionData.length > 0 ? (
             <>
               <div className="rp-chart-header">
                 <div className="rp-chart-title">Section breakdown</div>
@@ -692,6 +790,31 @@ const ReportingDashboard: React.FC = () => {
                   <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7a85' }} />
                   <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Bar dataKey="avgScore" fill="#2e7d32" radius={[0, 3, 3, 0]} maxBarSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            </>
+          ) : complianceRateData.length > 0 ? (
+            <>
+              <div className="rp-chart-header">
+                <div className="rp-chart-title">Compliance rate</div>
+                <div className="rp-chart-sub">
+                  {selectedTemplateId
+                    ? `% of stores completed — ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`
+                    : '% of stores completed — latest audit per template'}
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={complianceRateData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Completion Rate'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <ReferenceLine y={80} stroke="#e65100" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: '80%', position: 'right', fontSize: 10, fill: '#e65100' }} />
+                  <Bar dataKey="rate" radius={[3, 3, 0, 0]} maxBarSize={48}>
+                    {complianceRateData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.rate >= 80 ? '#2e7d32' : entry.rate >= 60 ? '#e65100' : '#b23d59'} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </>
