@@ -76,6 +76,16 @@ export type CollectionFilter = 'library' | 'drafts' | 'archived';
 export type AuditCollectionFilter = 'overview' | 'assigned-to-me' | 'awaiting-approval' | 'done' | 'sent' | 'scheduled' | 'audit-drafts' | 'all';
 
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const todayISO = new Date().toISOString().slice(0, 10);
+// Week boundaries (Mon–Sun of the current week)
+const _now = new Date();
+const _dayOfWeek = _now.getDay();
+const _monday = new Date(_now); _monday.setDate(_now.getDate() + (_dayOfWeek === 0 ? -6 : 1 - _dayOfWeek));
+const _sunday = new Date(_monday); _sunday.setDate(_monday.getDate() + 6);
+const weekStartISO  = _monday.toISOString().slice(0, 10);
+const weekEndISO    = _sunday.toISOString().slice(0, 10);
+const monthStartISO = new Date(_now.getFullYear(), _now.getMonth(), 1).toISOString().slice(0, 10);
+const monthEndISO   = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
 const formatScheduledDate = (dateStr: string) => {
   const d = new Date(dateStr);
@@ -244,6 +254,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
   const [auditFilterPanelOpen, setAuditFilterPanelOpen] = useState(false);
   const [pendingFilters, setPendingFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(EMPTY_AUDIT_FILTERS);
+  const [dueRange, setDueRange] = useState<'today' | 'week' | 'month'>('week');
 
   useEffect(() => { setSelectedTab(tab); }, [tab]);
 
@@ -385,6 +396,29 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     'audit-drafts':    auditInstances.filter((i) => i.status === 'draft').length,
     'all':             auditInstances.length + sampleAuditCards.length,
   };
+
+  // Summary tiles counts — based on all sent audits for the current role, unaffected by filters
+  const summaryTiles = useMemo(() => {
+    const sentInstances = auditInstances.filter((i) => i.status === 'sent');
+    const roleInstances =
+      role === 'areaManager'
+        ? sentInstances.filter((i) => {
+            if (i.audience === 'stores') return true;
+            if (i.audience === 'auditors') return i.auditorAssignments?.some((a) => a.auditor.id === AREA_MANAGER_AUDITOR_ID) ?? false;
+            return false;
+          })
+        : role === 'store'
+        ? sentInstances.filter((i) => i.stores.includes(STORE_NAME))
+        : sentInstances;
+    return {
+      overdue:        roleInstances.filter((i) => !!i.dueDate && i.dueDate < todayISO && i.completedCount < i.stores.length).length,
+      dueToday:       roleInstances.filter((i) => i.dueDate === todayISO).length,
+      dueThisWeek:    roleInstances.filter((i) => !!i.dueDate && i.dueDate >= weekStartISO && i.dueDate <= weekEndISO).length,
+      dueThisMonth:   roleInstances.filter((i) => !!i.dueDate && i.dueDate >= monthStartISO && i.dueDate <= monthEndISO).length,
+      awaitingReview: roleInstances.filter((i) => i.stores.length > 0 && i.completedCount >= i.stores.length).length,
+      openFollowUp:   roleInstances.filter((i) => i.completedCount > 0).length,
+    };
+  }, [auditInstances, role]);
 
   // Counts per filter
   const libCount = templates.filter((t) => !t.status || t.status === 'library').length;
@@ -731,7 +765,89 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
         </div>
       </div>
 
-      {/* Row 3: Cards grid */}
+      {/* Row 3: Summary tiles — audits only */}
+      {!isTemplates && (
+        <div className="audit-summary-tiles">
+          <div className="audit-tile audit-tile--danger">
+            <div className="audit-tile-top">
+              <span className="audit-tile-count">{summaryTiles.overdue}</span>
+              <span className="audit-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </span>
+            </div>
+            <span className="audit-tile-label">Overdue</span>
+          </div>
+
+          <div className="audit-tile audit-tile--warning">
+            <div className="audit-tile-top">
+              <span className="audit-tile-count">
+                {dueRange === 'today' ? summaryTiles.dueToday : dueRange === 'week' ? summaryTiles.dueThisWeek : summaryTiles.dueThisMonth}
+              </span>
+              <span className="audit-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </span>
+            </div>
+            <div className="audit-tile-label-row">
+              <span className="audit-tile-label">
+                {dueRange === 'today' ? 'Due today' : dueRange === 'week' ? 'Due this week' : 'Due this month'}
+              </span>
+              <div className="audit-tile-range-tabs">
+                {(['today', 'week', 'month'] as const).map((r, i) => (
+                  <React.Fragment key={r}>
+                    {i > 0 && <span className="audit-tile-range-sep">·</span>}
+                    <button
+                      className={`audit-tile-range-tab${dueRange === r ? ' audit-tile-range-tab--active' : ''}`}
+                      onClick={() => setDueRange(r)}
+                    >
+                      {r === 'today' ? 'Today' : r === 'week' ? 'Week' : 'Month'}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="audit-tile audit-tile--primary">
+            <div className="audit-tile-top">
+              <span className="audit-tile-count">{summaryTiles.awaitingReview}</span>
+              <span className="audit-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </span>
+            </div>
+            <span className="audit-tile-label">Awaiting review</span>
+          </div>
+
+          <div className="audit-tile audit-tile--followup">
+            <div className="audit-tile-top">
+              <span className="audit-tile-count">{summaryTiles.openFollowUp}</span>
+              <span className="audit-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </span>
+            </div>
+            <span className="audit-tile-label">Open follow-up actions</span>
+          </div>
+        </div>
+      )}
+
+      {/* Row 4: Cards grid */}
       <div className="audit-grid">
         {isTemplates
           ? filteredTemplates.map((card) => (

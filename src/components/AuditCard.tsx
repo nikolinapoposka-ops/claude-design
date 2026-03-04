@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Badge, Avatar } from '@quinyx/ui';
 import { useRole, STORE_NAME, AREA_MANAGER_NAME } from '../context/RoleContext';
 import { useToast } from './Toast';
@@ -42,6 +42,8 @@ const AuditCard: React.FC<AuditCardProps> = ({
   const { role } = useRole();
   const createToast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAlignment, setMenuAlignment] = useState({ right: true, up: true });
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const [notifyModalOpen, setNotifyModalOpen] = useState(false);
   const [notifyNote, setNotifyNote] = useState('');
 
@@ -205,7 +207,7 @@ const AuditCard: React.FC<AuditCardProps> = ({
                   style={{ position: 'fixed', inset: 0, zIndex: 199 }}
                   onClick={() => setMenuOpen(false)}
                 />
-                <div className="card-dropdown card-dropdown--right">
+                <div className={`card-dropdown${menuAlignment.right ? ' card-dropdown--right' : ''}`} style={menuAlignment.up ? {} : { bottom: 'auto', top: 'calc(100% + 6px)' }}>
                   <button className="card-dropdown-item" onClick={() => setMenuOpen(false)}>
                     Create a copy
                   </button>
@@ -221,7 +223,20 @@ const AuditCard: React.FC<AuditCardProps> = ({
                 </div>
               </>
             )}
-            <button className="card-more-btn" onClick={() => setMenuOpen((o) => !o)}>···</button>
+            <button
+              ref={menuBtnRef}
+              className="card-more-btn"
+              onClick={() => {
+                if (!menuOpen && menuBtnRef.current) {
+                  const rect = menuBtnRef.current.getBoundingClientRect();
+                  setMenuAlignment({
+                    right: rect.left > window.innerWidth / 2,
+                    up: rect.top > 160,
+                  });
+                }
+                setMenuOpen((o) => !o);
+              }}
+            >···</button>
           </div>
         )}
         <Badge label={category} variant="brand" size="small" />

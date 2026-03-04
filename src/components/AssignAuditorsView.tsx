@@ -65,6 +65,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
     Object.fromEntries(visibleRegions.map((r) => [r.name, true]))
   );
   const [nationalExpanded, setNationalExpanded] = useState(true);
+  const [step, setStep] = useState<'assign' | 'summary'>('assign');
 
   const activeAuditor = MOCK_AUDITORS.find((a) => a.id === activeAuditorId) ?? null;
   const activeStores = activeAuditorId ? (assignments[activeAuditorId] ?? []) : [];
@@ -123,7 +124,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
     setAssignments({});
   };
 
-  const handleQuickAssignAll = () => {
+  const handleAssignAll = () => {
     const next: Record<string, string[]> = {};
     for (const auditor of visibleAuditors) {
       next[auditor.id] = [...visibleAllStores];
@@ -140,6 +141,70 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
 
   const national = getNationalState();
 
+  // ── Summary step ──────────────────────────────────────────────────────────
+  if (step === 'summary') {
+    const assignedAuditors = visibleAuditors.filter((a) => (assignments[a.id] ?? []).length > 0);
+    return (
+      <div className="assign-page">
+        <div className="assign-page-header">
+          <div className="assign-header-left">
+            <button className="assign-back-btn" onClick={() => setStep('assign')} aria-label="Back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="18" height="18">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="assign-page-title">Review Assignment</h1>
+              <p className="assign-page-subtitle">Confirm the stores assigned to each auditor</p>
+            </div>
+          </div>
+          <div className="assign-header-pills">
+            <span className="assign-pill assign-pill--teal">{totalStores} store{totalStores !== 1 ? 's' : ''}</span>
+            <span className="assign-pill">{totalAssignments} auditor{totalAssignments !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+
+        <div className="assign-summary-page-body">
+          {assignedAuditors.map((auditor) => {
+            const stores = assignments[auditor.id];
+            return (
+              <div key={auditor.id} className="assign-summary-card">
+                <div className="assign-summary-card-header">
+                  <div className="avatar-sm">{auditor.initials}</div>
+                  <div className="assign-summary-card-info">
+                    <span className="assign-summary-auditor-name">{auditor.name}</span>
+                    <span className="assign-auditor-role">{auditor.role}</span>
+                  </div>
+                  <span className="assign-selected-chip">{stores.length}</span>
+                </div>
+                <ul className="assign-summary-stores-flat">
+                  {stores.map((s) => (
+                    <li key={s} className="assign-summary-store">{s}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="assign-page-footer">
+          <button className="btn btn--outline btn--pill" onClick={() => setStep('assign')}>Back</button>
+          <div className="assign-footer-actions">
+            <button className="btn btn--outline btn--pill" onClick={onCancel}>Cancel</button>
+            <button
+              className="btn btn--filled btn--pill"
+              onClick={handleConfirm}
+              disabled={totalAssignments === 0}
+            >
+              Confirm Assignment
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Assign step ───────────────────────────────────────────────────────────
   return (
     <div className="assign-page">
       {/* Header */}
@@ -155,30 +220,27 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
             <p className="assign-page-subtitle">Select an auditor and assign stores individually</p>
           </div>
         </div>
+        {(totalStores > 0 || totalAssignments > 0) && (
+          <div className="assign-header-pills">
+            <span className="assign-pill assign-pill--teal">{totalStores} store{totalStores !== 1 ? 's' : ''}</span>
+            <span className="assign-pill">{totalAssignments} auditor{totalAssignments !== 1 ? 's' : ''}</span>
+          </div>
+        )}
       </div>
 
-      {/* Quick assign / unassign banner */}
-      <div className="assign-quick-banner">
-        <button
-          className="assign-quick-btn"
-          onClick={totalAssignments === 0 ? handleQuickAssignAll : handleClearAll}
-        >
-          {totalAssignments === 0 ? 'Assign all' : 'Unassign all'}
-        </button>
-        <span className="assign-quick-banner-text">
-          {totalAssignments === 0
-            ? 'Assign all auditors and stores at once.'
-            : 'Remove all current assignments.'}
-        </span>
-      </div>
-
-      {/* Body: 3 columns */}
+      {/* Body: 2 columns */}
       <div className="assign-page-body">
         {/* Left: Auditor list */}
         <div className="assign-left">
           <div className="assign-left-header">
             <span className="assign-left-title">All Auditors</span>
             <span className="assign-left-count">{visibleAuditors.length}</span>
+            <button
+              className="assign-panel-assign-btn"
+              onClick={totalAssignments === 0 ? handleAssignAll : handleClearAll}
+            >
+              {totalAssignments === 0 ? 'Assign all' : 'Unassign all'}
+            </button>
           </div>
           <input
             className="assign-search"
@@ -191,28 +253,19 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
             {filteredAuditors.map((auditor) => {
               const storeCount = (assignments[auditor.id] ?? []).length;
               const isActive = auditor.id === activeAuditorId;
+              const isCurrentUser = role === 'areaManager' && auditor.id === AREA_MANAGER_AUDITOR_ID;
               return (
                 <button
                   key={auditor.id}
                   className={`assign-auditor-row${isActive ? ' assign-auditor-row--active' : ''}`}
                   onClick={() => setActiveAuditorId(auditor.id)}
                 >
-                  <input
-                    type="checkbox"
-                    checked={storeCount > 0}
-                    readOnly
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => {
-                      if (storeCount > 0) {
-                        setAssignments((prev) => ({ ...prev, [auditor.id]: [] }));
-                      } else {
-                        setActiveAuditorId(auditor.id);
-                      }
-                    }}
-                  />
                   <div className="avatar-sm">{auditor.initials}</div>
                   <div className="assign-auditor-info">
-                    <span className="assign-auditor-name">{auditor.name}</span>
+                    <div className="assign-auditor-name-row">
+                      <span className="assign-auditor-name">{auditor.name}</span>
+                      {isCurrentUser && <span className="assign-you-badge">You</span>}
+                    </div>
                     <span className="assign-auditor-role">{auditor.role}</span>
                   </div>
                   {storeCount > 0 && (
@@ -224,7 +277,7 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
           </div>
         </div>
 
-        {/* Middle: Store workspace */}
+        {/* Right: Store workspace */}
         <div className="assign-middle">
           {!activeAuditor ? (
             <div className="assign-empty-state">
@@ -234,7 +287,8 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
                 <path d="M23 21v-2a4 4 0 00-3-3.87" />
                 <path d="M16 3.13a4 4 0 010 7.75" />
               </svg>
-              <p className="assign-empty-text">Select an auditor to begin assigning stores</p>
+              <p className="assign-empty-text">Select an auditor to begin</p>
+              <p className="assign-empty-subtext">Click on any auditor from the left panel to assign stores</p>
             </div>
           ) : (
             <>
@@ -325,59 +379,23 @@ const AssignAuditorsView: React.FC<Props> = ({ initialAssignments, onConfirm, on
             </>
           )}
         </div>
-
-        {/* Right: Assignment Summary */}
-        <div className="assign-right">
-          <div className="assign-summary-header">
-            <span className="assign-summary-title">Assignment Summary</span>
-          </div>
-
-          {totalAssignments === 0 ? (
-            <p className="assign-summary-empty">No assignments yet</p>
-          ) : (
-            <>
-              <p className="assign-summary-meta">
-                {totalAssignments} auditor{totalAssignments !== 1 ? 's' : ''} · {totalStores} store{totalStores !== 1 ? 's' : ''}
-              </p>
-              <div className="assign-summary-list">
-                {visibleAuditors.filter((a) => (assignments[a.id] ?? []).length > 0).map((auditor) => {
-                  const stores = assignments[auditor.id];
-                  return (
-                    <div key={auditor.id} className="assign-summary-auditor">
-                      <div className="assign-summary-auditor-header">
-                        <div className="avatar-sm">{auditor.initials}</div>
-                        <span className="assign-summary-auditor-name">{auditor.name}</span>
-                        <span className="assign-selected-chip">{stores.length}</span>
-                      </div>
-                      <ul className="assign-summary-stores">
-                        {stores.map((s) => (
-                          <li key={s} className="assign-summary-store">{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       {/* Footer */}
       <div className="assign-page-footer">
         <span className="assign-footer-status">
           {totalAssignments > 0
-            ? `Ready to confirm ${totalAssignments} assignment${totalAssignments !== 1 ? 's' : ''}`
+            ? `${totalAssignments} auditor${totalAssignments !== 1 ? 's' : ''} · ${totalStores} store${totalStores !== 1 ? 's' : ''} assigned`
             : 'No assignments yet'}
         </span>
         <div className="assign-footer-actions">
           <button className="btn btn--outline btn--pill" onClick={onCancel}>Cancel</button>
           <button
             className="btn btn--filled btn--pill"
-            onClick={handleConfirm}
+            onClick={() => setStep('summary')}
             disabled={totalAssignments === 0}
           >
-            Confirm Assignment
+            Review & Confirm
           </button>
         </div>
       </div>

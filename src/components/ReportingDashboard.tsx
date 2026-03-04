@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, ReferenceLine, Cell,
+  LineChart, Line, Legend,
 } from 'recharts';
 import { useRole } from '../context/RoleContext';
 import {
@@ -22,6 +22,13 @@ function scoreColor(score: number): string {
   return '#b23d59';
 }
 
+function scoreChangeColor(change: number | null): string {
+  if (change === null) return '#9aa5ae';
+  if (change > 0) return '#2e7d32';
+  if (change < 0) return '#b23d59';
+  return '#9aa5ae';
+}
+
 function statusLabel(status: string): string {
   if (status === 'done') return 'Completed';
   if (status === 'in-progress') return 'In Progress';
@@ -34,90 +41,59 @@ function statusClass(status: string): string {
   return 'rp-status--pending';
 }
 
+const COMPARISON_COLORS = ['#1565c0', '#2e7d32', '#e65100'] as const;
+const TEMPLATE_COLORS = ['#26a69a', '#ffa726', '#ab47bc'] as const;
+
+function shortAuditName(name: string): string {
+  return name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+}
+
+
+type RollingDir = 'Last' | 'Next';
+type RollingUnit = 'Days' | 'Weeks' | 'Months' | 'Years';
+const ROLLING_DIRS: RollingDir[] = ['Last', 'Next'];
+const ROLLING_UNITS: RollingUnit[] = ['Days', 'Weeks', 'Months', 'Years'];
+
+function computeRollingRange(dir: RollingDir, amount: number, unit: RollingUnit): { from: string; to: string } {
+  const today = new Date();
+  const other = new Date(today);
+  const n = dir === 'Last' ? -amount : amount;
+  if (unit === 'Days') other.setDate(today.getDate() + n);
+  else if (unit === 'Weeks') other.setDate(today.getDate() + n * 7);
+  else if (unit === 'Months') other.setMonth(today.getMonth() + n);
+  else other.setFullYear(today.getFullYear() + n);
+  const [from, to] = dir === 'Last' ? [other, today] : [today, other];
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+function fmtDate(iso: string): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${m}/${d}/${y}`;
+}
+
 // ─── Sub-components ────────────────────────────────────────────────────────────
 
-const KPITile: React.FC<{
-  label: string; value: string | number; sub?: string;
-  trend?: number; accent?: 'pass' | 'risk' | 'fail' | 'neutral'; icon: React.ReactNode;
-}> = ({ label, value, sub, trend, accent = 'neutral', icon }) => (
-  <div className="rp-kpi-tile">
-    <div className="rp-kpi-icon">{icon}</div>
-    <div className="rp-kpi-body">
-      <div className={`rp-kpi-value rp-kpi-value--${accent}`}>{value}</div>
-      <div className="rp-kpi-label">{label}</div>
-      {sub && <div className="rp-kpi-sub">{sub}</div>}
-    </div>
-    {trend !== undefined && (
-      <div className={`rp-kpi-trend ${trend >= 0 ? 'rp-kpi-trend--up' : 'rp-kpi-trend--down'}`}>
-        {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
-      </div>
-    )}
-  </div>
-);
-
-const ScoreBar: React.FC<{ score: number; showLabel?: boolean }> = ({ score, showLabel = true }) => (
+const ScoreBar: React.FC<{ score: number; showLabel?: boolean; color?: string }> = ({ score, showLabel = true, color }) => (
   <div className="rp-score-bar-wrap">
     <div className="rp-score-bar">
-      <div className="rp-score-fill" style={{ width: `${score}%`, backgroundColor: scoreColor(score) }} />
+      <div className="rp-score-fill" style={{ width: `${score}%`, backgroundColor: color ?? scoreColor(score) }} />
     </div>
-    {showLabel && <span className="rp-score-label" style={{ color: scoreColor(score) }}>{score}%</span>}
+    {showLabel && <span className="rp-score-label" style={{ color: color ?? scoreColor(score) }}>{score}%</span>}
   </div>
 );
 
-const QuestionRow: React.FC<{ question: StoreAuditResult['sections'][0]['questions'][0]; index: number }> = ({ question, index }) => (
-  <div className={`rp-question-row ${question.followUpTask ? 'rp-question-row--has-task' : ''}`}>
-    <div className="rp-question-num">{index + 1}</div>
-    <div className="rp-question-text">{question.text}</div>
-    <div className="rp-question-answer">
-      {question.isNA ? (
-        <span className="rp-answer-badge rp-answer-badge--na">N/A</span>
-      ) : (
-        <span className={`rp-answer-badge rp-answer-badge--${question.answer === 'Yes' ? 'yes' : question.answer === 'Partially' ? 'partial' : 'no'}`}>
-          {question.answer}
-        </span>
-      )}
-    </div>
-    <div className="rp-question-score">
-      {question.isNA ? '—' : `${question.scoreValue}/${question.maxScore}`}
-    </div>
-    {question.followUpTask && (
-      <div className="rp-question-task">
-        <span className={`rp-task-badge${question.followUpTaskStatus === 'resolved' ? ' rp-task-badge--resolved' : ''}`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
-            <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-          </svg>
-          {question.followUpTaskStatus === 'resolved' ? 'Resolved' : 'Open'}
-        </span>
-        <span className="rp-task-text">{question.followUpTask}</span>
-      </div>
-    )}
-  </div>
-);
-
-const SectionAccordion: React.FC<{ section: SectionResult; storeId: string }> = ({ section }) => {
-  const [open, setOpen] = useState(false);
+const SectionAccordion: React.FC<{ section: SectionResult }> = ({ section }) => {
   const openTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
   const resolvedTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
   return (
     <div className="rp-section-accordion">
-      <div className="rp-section-row" onClick={() => setOpen(v => !v)}>
-        <svg className={`rp-chevron ${open ? 'rp-chevron--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
+      <div className="rp-section-row">
         <span className="rp-section-name">{section.name}</span>
-        <div className="rp-section-score-wrap"><ScoreBar score={section.score} /></div>
+        <div className="rp-section-score-wrap"><span style={{ color: scoreColor(section.score), fontWeight: 600, fontSize: 13 }}>{section.score}%</span></div>
         {openTaskCount > 0 && <span className="rp-task-count">{openTaskCount} open</span>}
         {resolvedTaskCount > 0 && <span className="rp-task-count rp-task-count--resolved">{resolvedTaskCount} resolved</span>}
       </div>
-      {open && (
-        <div className="rp-questions-body">
-          <div className="rp-questions-header">
-            <span className="rp-qh-num">#</span><span className="rp-qh-text">Question</span>
-            <span className="rp-qh-answer">Answer</span><span className="rp-qh-score">Score</span>
-          </div>
-          {section.questions.map((q, i) => <QuestionRow key={q.id} question={q} index={i} />)}
-        </div>
-      )}
     </div>
   );
 };
@@ -125,12 +101,13 @@ const SectionAccordion: React.FC<{ section: SectionResult; storeId: string }> = 
 // Full store drill-down row (used when a specific audit is selected)
 const StoreRow: React.FC<{
   result: StoreAuditResult; storeName: string; areaName: string;
-  comparisonResult?: StoreAuditResult; comparisonAuditName?: string; primaryAuditName?: string;
-}> = ({ result, storeName, areaName, comparisonResult, comparisonAuditName, primaryAuditName }) => {
+  allAuditResults?: { auditName: string; result: StoreAuditResult }[];
+}> = ({ result, storeName, areaName, allAuditResults }) => {
   const [open, setOpen] = useState(false);
   const allQuestions = result.sections.flatMap(s => s.questions);
   const openTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
   const resolvedTaskCount = allQuestions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
+  const isMulti = allAuditResults && allAuditResults.length > 1;
   return (
     <div className={`rp-store-block ${open ? 'rp-store-block--open' : ''}`}>
       <div className="rp-store-row" onClick={() => setOpen(v => !v)}>
@@ -144,19 +121,17 @@ const StoreRow: React.FC<{
         <div className="rp-store-auditor">{result.auditor}</div>
         <div className="rp-store-date">{result.date || '—'}</div>
         <div className="rp-store-score-cell">
-          {comparisonResult ? (
+          {isMulti ? (
             <div className="rp-comparison-scores">
-              <div className="rp-comparison-score">
-                <div className="rp-comparison-label">{primaryAuditName}</div>
-                <ScoreBar score={result.overallScore} />
-              </div>
-              <div className="rp-comparison-score">
-                <div className="rp-comparison-label">{comparisonAuditName}</div>
-                <ScoreBar score={comparisonResult.overallScore} />
-              </div>
+              {allAuditResults.map(({ auditName, result: r }, i) => (
+                <div key={i} className="rp-comparison-score">
+                  <div className="rp-comparison-label" style={{ color: COMPARISON_COLORS[i % COMPARISON_COLORS.length] }}>{shortAuditName(auditName)}</div>
+                  <ScoreBar score={r.overallScore} color={COMPARISON_COLORS[i % COMPARISON_COLORS.length]} />
+                </div>
+              ))}
             </div>
           ) : (
-            <ScoreBar score={result.overallScore} />
+            <span style={{ color: scoreColor(result.overallScore), fontWeight: 600, fontSize: 13 }}>{result.overallScore}%</span>
           )}
         </div>
         <div className="rp-store-status">
@@ -189,59 +164,7 @@ const StoreRow: React.FC<{
         <div className="rp-store-expanded">
           <div className="rp-sections-label">Section breakdown</div>
           {result.sections.map(section => (
-            <SectionAccordion key={section.name} section={section} storeId={result.storeId} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Area row — used in HQ default view
-const AreaRow: React.FC<{
-  areaName: string; avgScore: number; storeCount: number;
-  completedCount: number; taskCount: number;
-  stores: Array<{ id: string; name: string; score: number; date: string; auditor: string; status: string }>;
-}> = ({ areaName, avgScore, storeCount, completedCount, taskCount, stores }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className={`rp-store-block ${open ? 'rp-store-block--open' : ''}`}>
-      <div className="rp-store-row" onClick={() => setOpen(v => !v)}>
-        <svg className={`rp-chevron ${open ? 'rp-chevron--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-        <div className="rp-store-info">
-          <div className="rp-store-name">{areaName}</div>
-          <div className="rp-store-area">{storeCount} stores · {completedCount} completed</div>
-        </div>
-        <div className="rp-store-auditor">—</div>
-        <div className="rp-store-date">—</div>
-        <div className="rp-store-score-cell"><ScoreBar score={avgScore} /></div>
-        <div className="rp-store-status">
-          <span className="rp-status-badge rp-status--done">{completedCount}/{storeCount}</span>
-        </div>
-        {taskCount > 0 && (
-          <div className="rp-store-tasks">
-            <span className="rp-followup-badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
-                <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
-              </svg>
-              {taskCount}
-            </span>
-          </div>
-        )}
-      </div>
-      {open && (
-        <div className="rp-store-expanded">
-          <div className="rp-sections-label">Stores in this area — latest scores</div>
-          {stores.map(store => (
-            <div key={store.id} className="rp-area-store-row">
-              <div className="rp-area-store-name">{store.name}</div>
-              <div className="rp-area-store-auditor">{store.auditor}</div>
-              <div className="rp-area-store-date">{store.date || '—'}</div>
-              <div className="rp-area-store-score"><ScoreBar score={store.score} /></div>
-              <span className={`rp-status-badge ${statusClass(store.status)}`}>{statusLabel(store.status)}</span>
-            </div>
+            <SectionAccordion key={section.name} section={section} />
           ))}
         </div>
       )}
@@ -270,7 +193,7 @@ const StoreHistoryRow: React.FC<{
         </div>
         <div className="rp-store-auditor">{result.auditor}</div>
         <div className="rp-store-date">{date || '—'}</div>
-        <div className="rp-store-score-cell"><ScoreBar score={score} /></div>
+        <div className="rp-store-score-cell"><span style={{ color: scoreColor(score), fontWeight: 600, fontSize: 13 }}>{score}%</span></div>
         <div className="rp-store-status">
           <span className={`rp-status-badge ${statusClass(status)}`}>{statusLabel(status)}</span>
         </div>
@@ -299,10 +222,116 @@ const StoreHistoryRow: React.FC<{
         <div className="rp-store-expanded">
           <div className="rp-sections-label">Section breakdown</div>
           {result.sections.map(section => (
-            <SectionAccordion key={section.name} section={section} storeId={result.storeId} />
+            <SectionAccordion key={section.name} section={section} />
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── Date Filter Modal ─────────────────────────────────────────────────────────
+
+const DateFilterModal: React.FC<{
+  initialFrom: string;
+  initialTo: string;
+  initialLabel: string;
+  onApply: (from: string, to: string, label: string) => void;
+  onCancel: () => void;
+}> = ({ initialFrom, initialTo, initialLabel, onApply, onCancel }) => {
+  const isInitialRolling = !initialLabel.startsWith('Between') && !initialLabel.startsWith('Fixed');
+  const [mode, setMode] = useState<'rolling' | 'fixed'>(isInitialRolling ? 'rolling' : 'fixed');
+  const [rollingDir, setRollingDir] = useState<RollingDir>(() =>
+    initialLabel.startsWith('Next') ? 'Next' : 'Last'
+  );
+  const [rollingAmount, setRollingAmount] = useState<string>(() => {
+    const m = initialLabel.match(/\d+/);
+    return m ? m[0] : '90';
+  });
+  const [rollingUnit, setRollingUnit] = useState<RollingUnit>(() => {
+    for (const u of ROLLING_UNITS) { if (initialLabel.includes(u)) return u; }
+    return 'Days';
+  });
+  const [fixedFrom, setFixedFrom] = useState(initialFrom);
+  const [fixedTo, setFixedTo] = useState(initialTo);
+
+  const previewRange = useMemo(() => {
+    if (mode === 'rolling') return computeRollingRange(rollingDir, parseInt(rollingAmount) || 0, rollingUnit);
+    return { from: fixedFrom, to: fixedTo };
+  }, [mode, rollingDir, rollingAmount, rollingUnit, fixedFrom, fixedTo]);
+
+  const previewLabel = mode === 'rolling'
+    ? `${rollingDir} ${rollingAmount} ${rollingUnit}`
+    : 'Fixed range';
+
+  const previewText = mode === 'rolling'
+    ? `${rollingDir} ${rollingAmount} ${rollingUnit} (${fmtDate(previewRange.from)} < ${fmtDate(previewRange.to)})`
+    : (fixedFrom && fixedTo)
+      ? `Between (${fmtDate(fixedFrom)} <= ${fmtDate(fixedTo)})`
+      : 'Select dates above';
+
+  return (
+    <div className="rp-date-modal-overlay" onClick={onCancel}>
+      <div className="rp-date-modal" onClick={e => e.stopPropagation()}>
+
+        <div className="rp-date-modal-header">
+          <span className="rp-date-modal-title">Select value for : Audit Date</span>
+        </div>
+
+        <div className="rp-date-modal-body">
+          {/* Rolling / Fixed toggle */}
+          <div className="rp-date-mode-toggle">
+            <button className={`rp-date-mode-btn${mode === 'rolling' ? ' rp-date-mode-btn--active' : ''}`} onClick={() => setMode('rolling')} type="button">Rolling</button>
+            <button className={`rp-date-mode-btn${mode === 'fixed' ? ' rp-date-mode-btn--active' : ''}`} onClick={() => setMode('fixed')} type="button">Fixed</button>
+          </div>
+
+          {mode === 'rolling' ? (
+            <div className="rp-date-rolling-row">
+              <select className="rp-date-rolling-select" value={rollingDir} onChange={e => setRollingDir(e.target.value as RollingDir)}>
+                {ROLLING_DIRS.map(d => <option key={d}>{d}</option>)}
+              </select>
+              <input className="rp-date-rolling-num" type="number" min="1" value={rollingAmount} onChange={e => setRollingAmount(e.target.value)} />
+              <select className="rp-date-rolling-select" value={rollingUnit} onChange={e => setRollingUnit(e.target.value as RollingUnit)}>
+                {ROLLING_UNITS.map(u => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+          ) : (
+            <div className="rp-date-fixed-row">
+              <div className="rp-date-fixed-type">Between</div>
+              <div className="rp-date-fixed-field">
+                <input className="rp-date-fixed-input" type="date" value={fixedFrom} onChange={e => setFixedFrom(e.target.value)} />
+                {fixedFrom && <button className="rp-date-fixed-clear" onClick={() => setFixedFrom('')} type="button">×</button>}
+              </div>
+              <span className="rp-date-fixed-to">to</span>
+              <div className="rp-date-fixed-field">
+                <input className="rp-date-fixed-input" type="date" value={fixedTo} onChange={e => setFixedTo(e.target.value)} />
+                {fixedTo && <button className="rp-date-fixed-clear" onClick={() => setFixedTo('')} type="button">×</button>}
+              </div>
+            </div>
+          )}
+
+          <div className="rp-date-preview-section">
+            <div className="rp-date-preview-hr" />
+            <span className="rp-date-preview-label">Preview:</span>
+            <div className="rp-date-preview-pill">
+              Audit Date <strong>&nbsp;{previewText}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="rp-date-modal-footer">
+          <div className="rp-date-modal-footer-hr" />
+          <div className="rp-date-modal-footer-btns">
+            <button className="rp-date-cancel-btn" onClick={onCancel} type="button">Cancel</button>
+            <button
+              className="rp-date-apply-btn"
+              onClick={() => onApply(previewRange.from, previewRange.to, previewLabel)}
+              type="button"
+            >Apply</button>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 };
@@ -313,14 +342,16 @@ const ReportingDashboard: React.FC = () => {
   const { role } = useRole();
 
   // ── Filter state ──
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
-  const [selectedAuditId, setSelectedAuditId] = useState<string>('');
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+  const [selectedAuditIds, setSelectedAuditIds] = useState<string[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string>('');
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [comparisonMode, setComparisonMode] = useState(false);
-  const [compareAuditId, setCompareAuditId] = useState<string>('');
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [dateLabel, setDateLabel] = useState('');
+  const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [groupSortBy, setGroupSortBy] = useState<'latest' | 'change'>('latest');
+  const [groupSortDir, setGroupSortDir] = useState<'asc' | 'desc'>('desc');
 
   // ── Role-based scoping ──
   const visibleStores = useMemo(() => {
@@ -338,29 +369,51 @@ const ReportingDashboard: React.FC = () => {
   const storeLocked = role === 'store';
 
   // ── Cascading audit options ──
+  // Audits dropdown only available when exactly one template is selected
   const availableAudits = useMemo(() =>
-    selectedTemplateId ? REPORT_AUDITS.filter(a => a.templateId === selectedTemplateId) : [],
-    [selectedTemplateId]
+    selectedTemplateIds.length === 1 ? REPORT_AUDITS.filter(a => a.templateId === selectedTemplateIds[0]) : [],
+    [selectedTemplateIds]
   );
 
-  const handleTemplateChange = (id: string) => {
-    setSelectedTemplateId(id);
-    setSelectedAuditId('');
-    setCompareAuditId('');
+  const toggleTemplateId = (id: string) => {
+    setSelectedTemplateIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+    setSelectedAuditIds([]);
   };
+
+  const toggleStoreId = (id: string) => {
+    setSelectedStoreIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  };
+
+  const toggleAuditId = (id: string) => {
+    setSelectedAuditIds(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]);
+  };
+
+  const [openFilter, setOpenFilter] = useState<string | null>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!openFilter) return;
+    const handler = (e: MouseEvent) => {
+      if (filterBarRef.current && !filterBarRef.current.contains(e.target as Node)) {
+        setOpenFilter(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openFilter]);
+  const toggleFilter = (name: string) => setOpenFilter(prev => prev === name ? null : name);
 
   const handleAreaChange = (id: string) => {
     setSelectedAreaId(id);
-    setSelectedStoreId('');
+    setSelectedStoreIds([]);
   };
 
   // ── Filtered stores ──
   const filteredStores = useMemo(() => {
     let stores = visibleStores;
     if (selectedAreaId) stores = stores.filter(s => s.areaId === selectedAreaId);
-    if (selectedStoreId) stores = stores.filter(s => s.id === selectedStoreId);
+    if (selectedStoreIds.length > 0) stores = stores.filter(s => selectedStoreIds.includes(s.id));
     return stores;
-  }, [visibleStores, selectedAreaId, selectedStoreId]);
+  }, [visibleStores, selectedAreaId, selectedStoreIds]);
 
   // Stores available in the store dropdown (cascades from area, before store selection)
   const availableStoresForFilter = useMemo(() => {
@@ -369,19 +422,29 @@ const ReportingDashboard: React.FC = () => {
     return stores;
   }, [visibleStores, selectedAreaId]);
 
-  // Single-store mode: a specific store is focused (either via filter or Store role)
-  const singleStoreMode = !!selectedStoreId || role === 'store';
-  const focusedStore = selectedStoreId
-    ? REPORT_STORES.find(s => s.id === selectedStoreId)
+  // Single-store mode: exactly one store is focused (either via filter or Store role)
+  const singleStoreMode = selectedStoreIds.length === 1 || role === 'store';
+  const focusedStore = selectedStoreIds.length === 1
+    ? REPORT_STORES.find(s => s.id === selectedStoreIds[0])
     : role === 'store' ? filteredStores[0] : undefined;
 
   const filteredStoreIds = useMemo(() => new Set(filteredStores.map(s => s.id)), [filteredStores]);
 
-  // ── All visible results (used for default state) ──
-  const allVisibleResults = useMemo(() =>
-    STORE_AUDIT_RESULTS.filter(r => filteredStoreIds.has(r.storeId)),
-    [filteredStoreIds]
-  );
+  // ── All visible results — respects all active filters ──
+  const allVisibleResults = useMemo(() => {
+    const templateAuditIds = selectedTemplateIds.length > 0
+      ? new Set(REPORT_AUDITS.filter(a => selectedTemplateIds.includes(a.templateId)).map(a => a.id))
+      : null;
+    const specificAuditIds = selectedAuditIds.length > 0 ? new Set(selectedAuditIds) : null;
+    return STORE_AUDIT_RESULTS.filter(r => {
+      if (!filteredStoreIds.has(r.storeId)) return false;
+      if (dateFrom && r.date < dateFrom) return false;
+      if (dateTo && r.date > dateTo) return false;
+      if (templateAuditIds && !templateAuditIds.has(r.auditId)) return false;
+      if (specificAuditIds && !specificAuditIds.has(r.auditId)) return false;
+      return true;
+    });
+  }, [filteredStoreIds, dateFrom, dateTo, selectedTemplateIds, selectedAuditIds]);
 
   // Latest completed result per store
   const latestResultPerStore = useMemo(() => {
@@ -393,70 +456,7 @@ const ReportingDashboard: React.FC = () => {
     return map;
   }, [allVisibleResults]);
 
-  // ── Template-filtered results ──
-  const templateResults = useMemo((): StoreAuditResult[] => {
-    if (!selectedTemplateId) return [];
-    const auditIds = new Set(availableAudits.map(a => a.id));
-    return STORE_AUDIT_RESULTS.filter(r => auditIds.has(r.auditId) && filteredStoreIds.has(r.storeId));
-  }, [selectedTemplateId, availableAudits, filteredStoreIds]);
-
-  // ── Audit-specific results ──
-  const primaryResults = useMemo((): StoreAuditResult[] => {
-    if (!selectedAuditId) return [];
-    return STORE_AUDIT_RESULTS.filter(r => r.auditId === selectedAuditId && filteredStoreIds.has(r.storeId));
-  }, [selectedAuditId, filteredStoreIds]);
-
-  const compareResults = useMemo((): StoreAuditResult[] => {
-    if (!comparisonMode || !compareAuditId) return [];
-    return STORE_AUDIT_RESULTS.filter(r => r.auditId === compareAuditId && filteredStoreIds.has(r.storeId));
-  }, [comparisonMode, compareAuditId, filteredStoreIds]);
-
-  const compareResultMap = useMemo(() => {
-    const map: Record<string, StoreAuditResult> = {};
-    compareResults.forEach(r => { map[r.storeId] = r; });
-    return map;
-  }, [compareResults]);
-
-  // ── Chart data ──
-
-  // Default: cross-template comparison (one bar per template)
-  const templateComparisonData = useMemo(() => {
-    return REPORT_TEMPLATES.map(template => {
-      const auditIds = new Set(REPORT_AUDITS.filter(a => a.templateId === template.id).map(a => a.id));
-      const results = allVisibleResults.filter(r => auditIds.has(r.auditId) && r.status === 'done');
-      return {
-        name: template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', ''),
-        avgScore: avg(results.map(r => r.overallScore)),
-        count: results.length,
-      };
-    }).filter(t => t.count > 0);
-  }, [allVisibleResults]);
-
-  // When template selected: trend per audit instance
-  const trendData = useMemo(() =>
-    availableAudits.map(audit => {
-      const results = templateResults.filter(r => r.auditId === audit.id);
-      return {
-        name: audit.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', ''),
-        avgScore: avg(results.map(r => r.overallScore)),
-      };
-    }),
-    [availableAudits, templateResults]
-  );
-
-  // Section breakdown
-  const sectionData = useMemo(() => {
-    const results = selectedAuditId ? primaryResults : templateResults;
-    if (!results.length) return [];
-    const map: Record<string, number[]> = {};
-    results.forEach(r => r.sections.forEach(s => {
-      if (!map[s.name]) map[s.name] = [];
-      map[s.name].push(s.score);
-    }));
-    return Object.entries(map).map(([name, scores]) => ({ name, avgScore: avg(scores) }));
-  }, [selectedAuditId, primaryResults, templateResults]);
-
-  // Single-store (Store role or HQ/AM with store filter): historical trend line
+  // Store history — used by the store-role audit history table
   const storeHistoryData = useMemo(() => {
     if (!singleStoreMode) return [];
     const sfStore = focusedStore;
@@ -471,112 +471,200 @@ const ReportingDashboard: React.FC = () => {
           const audit = REPORT_AUDITS.find(a => a.id === r.auditId);
           return REPORT_TEMPLATES.find(t => t.id === audit?.templateId)?.name ?? '';
         })(),
-        chartName: (REPORT_AUDITS.find(a => a.id === r.auditId)?.name ?? '')
-          .replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', ''),
       }));
   }, [singleStoreMode, focusedStore, allVisibleResults]);
 
-  // When a template is selected in single-store mode, filter history to that template
-  const storeHistoryChartData = useMemo(() => {
-    if (!selectedTemplateId) return storeHistoryData;
-    return storeHistoryData.filter(h => {
-      const audit = REPORT_AUDITS.find(a => a.id === h.result.auditId);
-      return audit?.templateId === selectedTemplateId;
-    });
-  }, [storeHistoryData, selectedTemplateId]);
+  // Area drill-down history — all completed results for filtered stores when an area is selected
+  const areaHistoryData = useMemo(() => {
+    if (singleStoreMode || !selectedAreaId) return [];
+    return [...allVisibleResults]
+      .filter(r => r.status === 'done')
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(r => {
+        const store = REPORT_STORES.find(s => s.id === r.storeId);
+        const audit = REPORT_AUDITS.find(a => a.id === r.auditId);
+        return { result: r, storeName: store?.name ?? r.storeId, auditName: audit?.name ?? r.auditId };
+      });
+  }, [singleStoreMode, selectedAreaId, allVisibleResults]);
 
-  // Compliance rate chart data (% of stores that completed each audit period)
-  const complianceRateData = useMemo(() => {
-    if (singleStoreMode) return [];
-    if (selectedTemplateId) {
-      // When template selected: compliance rate per period
-      return availableAudits.map(audit => {
-        const total = filteredStores.length;
-        const completed = STORE_AUDIT_RESULTS.filter(
-          r => r.auditId === audit.id && filteredStoreIds.has(r.storeId) && r.status === 'done'
-        ).length;
-        return {
-          name: audit.name
-            .replace('Safety Audit ', '')
-            .replace('Ops Review ', '')
-            .replace('VM Audit ', ''),
-          rate: total ? Math.round((completed / total) * 100) : 0,
-        };
+  // ── Chart data ──
+
+  // Templates to render in the grouped bar chart — selected ones, or all if none selected
+  const templatesToShow = useMemo(() =>
+    selectedTemplateIds.length > 0 ? REPORT_TEMPLATES.filter(t => selectedTemplateIds.includes(t.id)) : REPORT_TEMPLATES,
+    [selectedTemplateIds]
+  );
+
+  // Score Trend by Audit — grouped bar chart
+  // HQ overview: one group per area. HQ drilled into area / Area Manager / single store: one group per store.
+  const scoreTrendByAuditData = useMemo(() => {
+    if (role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0) {
+      return visibleAreas.map(area => {
+        const entry: Record<string, string | number> = { store: area.name };
+        templatesToShow.forEach(template => {
+          const auditIds = new Set(REPORT_AUDITS.filter(a => a.templateId === template.id).map(a => a.id));
+          const areaStoreIds = new Set(filteredStores.filter(s => s.areaId === area.id).map(s => s.id));
+          const results = allVisibleResults
+            .filter(r => areaStoreIds.has(r.storeId) && auditIds.has(r.auditId) && r.status === 'done');
+          const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+          entry[key] = results.length ? avg(results.map(r => r.overallScore)) : 0;
+        });
+        return entry;
       });
     }
-    // Default: most recent audit per template, compliance rate
-    return REPORT_TEMPLATES.map(template => {
-      const latest = REPORT_AUDITS
-        .filter(a => a.templateId === template.id)
-        .sort((a, b) => b.date.localeCompare(a.date))[0];
-      if (!latest) return null;
-      const total = filteredStores.length;
-      const completed = STORE_AUDIT_RESULTS.filter(
-        r => r.auditId === latest.id && filteredStoreIds.has(r.storeId) && r.status === 'done'
-      ).length;
-      return {
-        name: template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', ''),
-        rate: total ? Math.round((completed / total) * 100) : 0,
-      };
-    }).filter(Boolean) as { name: string; rate: number }[];
-  }, [singleStoreMode, selectedTemplateId, availableAudits, filteredStores, filteredStoreIds]);
+    // One group per store (area manager or HQ drilled into area)
+    return filteredStores.map(store => {
+      const entry: Record<string, string | number> = { store: store.name.split(' - ')[0] };
+      templatesToShow.forEach(template => {
+        const auditIds = new Set(REPORT_AUDITS.filter(a => a.templateId === template.id).map(a => a.id));
+        const result = allVisibleResults
+          .filter(r => r.storeId === store.id && auditIds.has(r.auditId) && r.status === 'done')
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+        const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+        entry[key] = result?.overallScore ?? 0;
+      });
+      return entry;
+    });
+  }, [role, selectedAreaId, selectedStoreIds, visibleAreas, filteredStores, allVisibleResults, templatesToShow]);
 
-  // HQ/AM default: area table rows
-  const areaTableData = useMemo(() => {
-    return visibleAreas.map(area => {
-      const areaStores = filteredStores.filter(s => s.areaId === area.id);
-      const storeResults = areaStores
-        .map(s => ({ store: s, result: latestResultPerStore[s.id] }))
-        .filter(x => x.result);
-      const taskCount = storeResults.flatMap(x => x.result.sections.flatMap(s => s.questions)).filter(q => q.followUpTask).length;
-      return {
-        areaId: area.id,
-        areaName: area.name,
-        storeCount: areaStores.length,
-        completedCount: storeResults.length,
-        avgScore: avg(storeResults.map(x => x.result.overallScore)),
-        taskCount,
-        stores: storeResults.map(x => ({
-          id: x.store.id,
-          name: x.store.name,
-          score: x.result.overallScore,
-          date: x.result.date,
-          auditor: x.result.auditor,
-          status: x.result.status,
-        })),
-      };
-    }).filter(a => a.storeCount > 0);
-  }, [visibleAreas, filteredStores, latestResultPerStore]);
+  // Score Trend by Group — heatmap data
+  // Rows = areas (HQ default) or stores (drilled-in). Columns = deduplicated time periods.
+  const heatmapData = useMemo(() => {
+    const completedAudits = REPORT_AUDITS
+      .filter(a => a.status === 'done'
+        && (selectedTemplateIds.length === 0 || selectedTemplateIds.includes(a.templateId))
+        && (selectedAuditIds.length === 0 || selectedAuditIds.includes(a.id)))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    // Build ordered unique period labels
+    const periodOrder: string[] = [];
+    const periodDates: Record<string, string> = {};
+    completedAudits.forEach(a => {
+      const label = a.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+      if (!periodDates[label]) { periodOrder.push(label); periodDates[label] = a.date; }
+    });
+    const periods = [...periodOrder].sort((a, b) => periodDates[a].localeCompare(periodDates[b]));
+    const isHQAreaView = role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0;
+    const groups = isHQAreaView
+      ? visibleAreas.map(ar => ({ id: ar.id, name: ar.name, isArea: true }))
+      : filteredStores.map(s => ({ id: s.id, name: s.name.split(' - ')[0], isArea: false }));
+    const rows = groups.map(group => {
+      const cells = periods.map(period => {
+        const auditsForPeriod = completedAudits.filter(a => {
+          const label = a.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+          return label === period;
+        });
+        let results: StoreAuditResult[];
+        if (group.isArea) {
+          const areaStoreIds = new Set(filteredStores.filter(s => s.areaId === group.id).map(s => s.id));
+          results = allVisibleResults.filter(r =>
+            auditsForPeriod.some(a => a.id === r.auditId) && areaStoreIds.has(r.storeId) && r.status === 'done'
+          );
+        } else {
+          results = allVisibleResults.filter(r =>
+            auditsForPeriod.some(a => a.id === r.auditId) && r.storeId === group.id && r.status === 'done'
+          );
+        }
+        return results.length ? avg(results.map(r => r.overallScore)) : null;
+      });
+      return { name: group.name, cells };
+    }).filter(row => row.cells.some(c => c !== null));
+    return { periods, rows };
+  }, [role, selectedAreaId, selectedStoreIds, visibleAreas, filteredStores, allVisibleResults, selectedTemplateIds, selectedAuditIds]);
 
-  // ── KPIs ──
-  const isDefault = !selectedTemplateId;
-  const kpiResults = isDefault
-    ? Object.values(latestResultPerStore)
-    : selectedAuditId ? primaryResults : templateResults;
+  // Sparkline table rows derived from heatmapData, sortable
+  const groupTableRows = useMemo(() => {
+    const rows = heatmapData.rows.map(row => {
+      const nonNull = row.cells.filter((c): c is number => c !== null);
+      const firstScore = nonNull[0] ?? null;
+      const latestScore = nonNull[nonNull.length - 1] ?? null;
+      const change = firstScore !== null && latestScore !== null ? latestScore - firstScore : null;
+      const trendColor = scoreChangeColor(change);
+      const sparkData = row.cells.map(c => ({ value: c }));
+      return { name: row.name, latestScore, change, sparkData, trendColor };
+    });
+    return [...rows].sort((a, b) => {
+      const aVal = groupSortBy === 'latest' ? (a.latestScore ?? -999) : (a.change ?? -999);
+      const bVal = groupSortBy === 'latest' ? (b.latestScore ?? -999) : (b.change ?? -999);
+      return groupSortDir === 'desc' ? bVal - aVal : aVal - bVal;
+    });
+  }, [heatmapData, groupSortBy, groupSortDir]);
 
-  const avgScore = avg(kpiResults.map(r => r.overallScore));
-  const completedCount = kpiResults.filter(r => r.status === 'done').length;
-  const totalCount = filteredStores.length;
-  const completionRate = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-  const followUpCount = kpiResults.flatMap(r => r.sections.flatMap(s => s.questions)).filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
-  const overdueCount = kpiResults.filter(r => r.isOverdue).length;
-  const atRiskCount = kpiResults.filter(r => r.overallScore < 75).length;
+  const handleGroupSort = (col: 'latest' | 'change') => {
+    if (groupSortBy === col) setGroupSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setGroupSortBy(col); setGroupSortDir('desc'); }
+  };
 
-  // Previous period trend
-  const prevAuditIdx = selectedAuditId
-    ? availableAudits.findIndex(a => a.id === selectedAuditId) - 1 : -1;
-  const prevResults = prevAuditIdx >= 0
-    ? STORE_AUDIT_RESULTS.filter(r => r.auditId === availableAudits[prevAuditIdx].id && filteredStoreIds.has(r.storeId)) : [];
-  const scoreTrend = prevResults.length > 0 ? avgScore - avg(prevResults.map(r => r.overallScore)) : undefined;
+  // Template trend over time — one line per template, x-axis = deduplicated time periods
+  const templateTrendData = useMemo(() => {
+    const completedAudits = REPORT_AUDITS
+      .filter(a => a.status === 'done'
+        && (selectedTemplateIds.length === 0 || selectedTemplateIds.includes(a.templateId))
+        && (selectedAuditIds.length === 0 || selectedAuditIds.includes(a.id)))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    // Group by period label — each unique label (e.g. "Q1 2024") becomes one x-axis point
+    const periodMap = new Map<string, { date: string; scores: Record<string, number[]> }>();
+    completedAudits.forEach(audit => {
+      const periodLabel = audit.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+      const matchingTemplate = templatesToShow.find(t => t.id === audit.templateId);
+      if (!matchingTemplate) return;
+      const key = matchingTemplate.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+      const results = allVisibleResults.filter(r => r.auditId === audit.id && r.status === 'done');
+      if (results.length === 0) return;
+      if (!periodMap.has(periodLabel)) periodMap.set(periodLabel, { date: audit.date, scores: {} });
+      const entry = periodMap.get(periodLabel)!;
+      if (!entry.scores[key]) entry.scores[key] = [];
+      results.forEach(r => entry.scores[key].push(r.overallScore));
+    });
+    return [...periodMap.entries()]
+      .sort((a, b) => a[1].date.localeCompare(b[1].date))
+      .map(([periodLabel, { scores }]) => {
+        const entry: Record<string, string | number> = { name: periodLabel };
+        Object.entries(scores).forEach(([key, vals]) => { entry[key] = avg(vals); });
+        return entry;
+      });
+  }, [templatesToShow, allVisibleResults, selectedTemplateIds, selectedAuditIds]);
 
-  const primaryAudit = REPORT_AUDITS.find(a => a.id === selectedAuditId);
-  const compareAudit = REPORT_AUDITS.find(a => a.id === compareAuditId);
 
-  // ── What to render ──
-  const showDefaultAreaTable  = isDefault && !singleStoreMode;
-  const showDefaultStoreHistory = isDefault && singleStoreMode;
-  const showTemplateTable     = !isDefault && !!selectedAuditId;
-  const showTemplateHint      = !isDefault && !selectedAuditId;
+  // Bar click handler — sets template + area/store filter from a bar click in the Score Trend chart
+  const handleBarClick = (barData: Record<string, string | number>, template: (typeof REPORT_TEMPLATES)[number]) => {
+    const clickedLabel = String(barData.store);
+    const isHQAreaView = role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0;
+    if (isHQAreaView) {
+      const area = visibleAreas.find(a => a.name === clickedLabel);
+      if (!area) return;
+      const alreadyActive = selectedTemplateIds.length === 1 && selectedTemplateIds[0] === template.id && selectedAreaId === area.id;
+      if (alreadyActive) {
+        setSelectedTemplateIds([]);
+        setSelectedAreaId('');
+      } else {
+        setSelectedTemplateIds([template.id]);
+        setSelectedAuditIds([]);
+        setSelectedAreaId(area.id);
+        setSelectedStoreIds([]);
+      }
+    } else {
+      const store = filteredStores.find(s => s.name.split(' - ')[0] === clickedLabel);
+      if (!store) return;
+      const alreadyActive = selectedTemplateIds.length === 1 && selectedTemplateIds[0] === template.id
+        && selectedStoreIds.length === 1 && selectedStoreIds[0] === store.id;
+      if (alreadyActive) {
+        setSelectedTemplateIds([]);
+        setSelectedStoreIds([]);
+      } else {
+        setSelectedTemplateIds([template.id]);
+        setSelectedAuditIds([]);
+        setSelectedStoreIds([store.id]);
+      }
+    }
+  };
+
+
+  // ── What to render — layout never changes based on filters ──
+  const showDefaultAreaTable    = !singleStoreMode && !selectedAreaId;
+  const showAreaHistory         = !singleStoreMode && !!selectedAreaId;
+  const showDefaultStoreHistory = singleStoreMode;
+
+  // ── Contextual sidebar text ──
 
   return (
     <div className="rp-root">
@@ -588,280 +676,434 @@ const ReportingDashboard: React.FC = () => {
             {role === 'hq' ? 'HQ — All Stores' : role === 'areaManager' ? 'Area Manager — West Coast' : 'Store Manager — San Francisco'}
           </span>
         </div>
-        <div className="rp-header-right">
-          <label className="rp-comparison-toggle">
-            <span>Comparison mode</span>
-            <span className="toggle-switch">
-              <input type="checkbox" checked={comparisonMode} onChange={e => { setComparisonMode(e.target.checked); if (!e.target.checked) setCompareAuditId(''); }} />
-              <span className="toggle-slider" />
-            </span>
-          </label>
-        </div>
+        <div className="rp-header-right" />
       </div>
 
       {/* ── Filter Bar ── */}
-      <div className="rp-filter-bar">
-        <div className="rp-filter-group">
-          <label className="rp-filter-label">Date from</label>
-          <input className="rp-filter-input" type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+      <div className="rp-filter-bar" ref={filterBarRef}>
+
+        {/* Date pill — opens modal */}
+        <div className="rp-filter-pill-wrap">
+          <button
+            className={`rp-filter-pill${dateLabel ? ' rp-filter-pill--active' : ''}`}
+            onClick={() => setDateModalOpen(true)}
+            type="button"
+          >
+            <span className="rp-pill-label">Date</span>
+            {dateLabel && <span className="rp-pill-value">{dateLabel}</span>}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className="rp-pill-chevron">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {dateLabel && (
+            <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setDateFrom(''); setDateTo(''); setDateLabel(''); }} type="button" title="Clear">×</button>
+          )}
         </div>
-        <div className="rp-filter-group">
-          <label className="rp-filter-label">Date to</label>
-          <input className="rp-filter-input" type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        </div>
-        <div className="rp-filter-sep" />
-        <div className="rp-filter-group">
-          <label className="rp-filter-label">
-            Area
+
+        {/* Area pill */}
+        <div className="rp-filter-pill-wrap">
+          <button
+            className={`rp-filter-pill${selectedAreaId ? ' rp-filter-pill--active' : ''}${areaLocked ? ' rp-filter-pill--locked' : ''}`}
+            onClick={() => !areaLocked && toggleFilter('area')}
+            type="button"
+            disabled={areaLocked}
+          >
             {areaLocked && (
-              <span title="Locked by your role" style={{ display: 'inline-flex', marginLeft: 4 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
-                </svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11" className="rp-pill-lock">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+              </svg>
+            )}
+            <span className="rp-pill-label">Area</span>
+            {selectedAreaId && <span className="rp-pill-value">{visibleAreas.find(a => a.id === selectedAreaId)?.name}</span>}
+            {!areaLocked && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'area' ? ' rp-pill-chevron--open' : ''}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            )}
+          </button>
+          {selectedAreaId && !areaLocked && (
+            <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); handleAreaChange(''); }} type="button" title="Clear">×</button>
+          )}
+          {openFilter === 'area' && (
+            <div className="rp-pill-dropdown">
+              <div
+                className={`rp-pill-dropdown__option${!selectedAreaId ? ' rp-pill-dropdown__option--selected' : ''}`}
+                onClick={() => { handleAreaChange(''); setOpenFilter(null); }}
+              >All areas</div>
+              {visibleAreas.map(a => (
+                <div
+                  key={a.id}
+                  className={`rp-pill-dropdown__option${selectedAreaId === a.id ? ' rp-pill-dropdown__option--selected' : ''}`}
+                  onClick={() => { handleAreaChange(a.id); setOpenFilter(null); }}
+                >{a.name}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Store pill — multi-select */}
+        {!storeLocked && (
+          <div className="rp-filter-pill-wrap">
+            <button
+              className={`rp-filter-pill${selectedStoreIds.length > 0 ? ' rp-filter-pill--active' : ''}`}
+              onClick={() => toggleFilter('store')}
+              type="button"
+            >
+              <span className="rp-pill-label">Store</span>
+              {selectedStoreIds.length > 0 && (
+                <span className="rp-pill-value">
+                  {selectedStoreIds.length === 1
+                    ? availableStoresForFilter.find(s => s.id === selectedStoreIds[0])?.name.split(' - ')[0]
+                    : `${selectedStoreIds.length} selected`}
+                </span>
+              )}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'store' ? ' rp-pill-chevron--open' : ''}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {selectedStoreIds.length > 0 && (
+              <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setSelectedStoreIds([]); }} type="button" title="Clear">×</button>
+            )}
+            {openFilter === 'store' && (
+              <div className="rp-pill-dropdown">
+                {availableStoresForFilter.map(s => {
+                  const isSelected = selectedStoreIds.includes(s.id);
+                  return (
+                    <div
+                      key={s.id}
+                      className="rp-pill-dropdown__option"
+                      onClick={() => toggleStoreId(s.id)}
+                    >
+                      <div className={`rp-multiselect-checkbox${isSelected ? ' rp-multiselect-checkbox--checked' : ''}`}
+                        style={isSelected ? { borderColor: '#1565c0', backgroundColor: '#1565c0' } : {}}>
+                        {isSelected && (
+                          <svg viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" width="9" height="9">
+                            <polyline points="2 6 5 9 10 3" />
+                          </svg>
+                        )}
+                      </div>
+                      <span>{s.name.split(' - ')[0]}</span>
+                      <span style={{ fontSize: 11, color: '#9aa5ae', marginLeft: 4 }}>{s.areaName}</span>
+                    </div>
+                  );
+                })}
+                {selectedStoreIds.length > 0 && (
+                  <div className="rp-multiselect-hint" style={{ borderTop: '1px solid #e8ecef', marginTop: 4, paddingTop: 4 }}>
+                    <button style={{ background: 'none', border: 'none', color: '#1565c0', fontSize: 12, cursor: 'pointer', padding: '2px 0' }}
+                      onClick={() => setSelectedStoreIds([])}>Clear all</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Template pill — multi-select */}
+        <div className="rp-filter-pill-wrap">
+          <button
+            className={`rp-filter-pill${selectedTemplateIds.length > 0 ? ' rp-filter-pill--active' : ''}`}
+            onClick={() => toggleFilter('template')}
+            type="button"
+          >
+            <span className="rp-pill-label">Template</span>
+            {selectedTemplateIds.length > 0 && (
+              <span className="rp-pill-value">
+                {selectedTemplateIds.length === 1
+                  ? REPORT_TEMPLATES.find(t => t.id === selectedTemplateIds[0])?.name
+                      .replace(' Standard', '').replace(' Audit', '').replace(' Review', '')
+                  : `${selectedTemplateIds.length} selected`}
               </span>
             )}
-          </label>
-          <select className="rp-filter-select" value={selectedAreaId} onChange={e => handleAreaChange(e.target.value)} disabled={areaLocked || storeLocked}>
-            {!areaLocked && <option value="">All areas</option>}
-            {visibleAreas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'template' ? ' rp-pill-chevron--open' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {selectedTemplateIds.length > 0 && (
+            <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setSelectedTemplateIds([]); setSelectedAuditIds([]); }} type="button" title="Clear">×</button>
+          )}
+          {openFilter === 'template' && (
+            <div className="rp-pill-dropdown">
+              {REPORT_TEMPLATES.map(t => {
+                const isSelected = selectedTemplateIds.includes(t.id);
+                return (
+                  <div
+                    key={t.id}
+                    className="rp-pill-dropdown__option"
+                    onClick={() => toggleTemplateId(t.id)}
+                  >
+                    <div className={`rp-multiselect-checkbox${isSelected ? ' rp-multiselect-checkbox--checked' : ''}`}
+                      style={isSelected ? { borderColor: '#1565c0', backgroundColor: '#1565c0' } : {}}>
+                      {isSelected && (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" width="9" height="9">
+                          <polyline points="2 6 5 9 10 3" />
+                        </svg>
+                      )}
+                    </div>
+                    <span>{t.name}</span>
+                  </div>
+                );
+              })}
+              {selectedTemplateIds.length > 0 && (
+                <div className="rp-multiselect-hint" style={{ borderTop: '1px solid #e8ecef', marginTop: 4, paddingTop: 4 }}>
+                  <button style={{ background: 'none', border: 'none', color: '#1565c0', fontSize: 12, cursor: 'pointer', padding: '2px 0' }}
+                    onClick={() => { setSelectedTemplateIds([]); setSelectedAuditIds([]); }}>Clear all</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        {!storeLocked && (
-          <div className="rp-filter-group">
-            <label className="rp-filter-label">Store</label>
-            <select
-              className="rp-filter-select"
-              value={selectedStoreId}
-              onChange={e => setSelectedStoreId(e.target.value)}
+
+        {/* Audit instances pill — only when exactly one template selected */}
+        {selectedTemplateIds.length === 1 && (
+          <div className="rp-filter-pill-wrap">
+            <button
+              className={`rp-filter-pill${selectedAuditIds.length > 0 ? ' rp-filter-pill--active' : ''}`}
+              onClick={() => toggleFilter('audits')}
+              type="button"
             >
-              <option value="">All stores</option>
-              {availableStoresForFilter.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+              <span className="rp-pill-label">Audits</span>
+              {selectedAuditIds.length > 0 && (
+                <span className="rp-pill-value">
+                  {selectedAuditIds.length === 1
+                    ? shortAuditName(availableAudits.find(a => a.id === selectedAuditIds[0])?.name ?? '')
+                    : `${selectedAuditIds.length} selected`}
+                </span>
+              )}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'audits' ? ' rp-pill-chevron--open' : ''}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {selectedAuditIds.length > 0 && (
+              <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setSelectedAuditIds([]); }} type="button" title="Clear">×</button>
+            )}
+            {openFilter === 'audits' && (
+              <div className="rp-pill-dropdown">
+                {availableAudits.map(audit => {
+                  const isSelected = selectedAuditIds.includes(audit.id);
+                  return (
+                    <div
+                      key={audit.id}
+                      className="rp-pill-dropdown__option"
+                      onClick={() => toggleAuditId(audit.id)}
+                    >
+                      <div
+                        className={`rp-multiselect-checkbox${isSelected ? ' rp-multiselect-checkbox--checked' : ''}`}
+                        style={isSelected ? { borderColor: '#1565c0', backgroundColor: '#1565c0' } : {}}
+                      >
+                        {isSelected && (
+                          <svg viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" width="9" height="9">
+                            <polyline points="2 6 5 9 10 3" />
+                          </svg>
+                        )}
+                      </div>
+                      <span>{shortAuditName(audit.name)}</span>
+                      <span style={{ fontSize: 11, color: '#9aa5ae', marginLeft: 4 }}>{audit.date}</span>
+                    </div>
+                  );
+                })}
+                {selectedAuditIds.length > 0 && (
+                  <div className="rp-multiselect-hint" style={{ borderTop: '1px solid #e8ecef', marginTop: 4, paddingTop: 4 }}>
+                    <button style={{ background: 'none', border: 'none', color: '#1565c0', fontSize: 12, cursor: 'pointer', padding: '2px 0' }}
+                      onClick={() => setSelectedAuditIds([])}>Clear all</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
-        <div className="rp-filter-sep" />
-        <div className="rp-filter-group">
-          <label className="rp-filter-label">Audit template</label>
-          <select className="rp-filter-select" value={selectedTemplateId} onChange={e => handleTemplateChange(e.target.value)}>
-            <option value="">All templates</option>
-            {REPORT_TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
-        <div className="rp-filter-group">
-          <label className="rp-filter-label">Specific audit</label>
-          <select className="rp-filter-select" value={selectedAuditId} onChange={e => setSelectedAuditId(e.target.value)} disabled={!selectedTemplateId}>
-            <option value="">{selectedTemplateId ? 'All audits from template' : 'Select template first'}</option>
-            {availableAudits.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </div>
-        {comparisonMode && (
-          <div className="rp-filter-group">
-            <label className="rp-filter-label rp-filter-label--compare">Compare with</label>
-            <select className="rp-filter-select rp-filter-select--compare" value={compareAuditId} onChange={e => setCompareAuditId(e.target.value)} disabled={!selectedTemplateId}>
-              <option value="">Select audit to compare</option>
-              {availableAudits.filter(a => a.id !== selectedAuditId).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
-        )}
+
       </div>
 
-      {/* ── KPI Tiles — always visible ── */}
-      <div className="rp-kpi-row">
-        <KPITile
-          label="Average Score" value={avgScore > 0 ? `${avgScore}%` : '—'}
-          sub={isDefault ? 'Latest score per store' : selectedAuditId ? primaryAudit?.name : 'Across all audits'}
-          trend={scoreTrend}
-          accent={avgScore >= 85 ? 'pass' : avgScore >= 70 ? 'risk' : 'fail'}
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>}
-        />
-        <KPITile
-          label="Completion Rate" value={`${completionRate}%`}
-          sub={overdueCount > 0 ? `${completedCount} of ${totalCount} stores · ${overdueCount} overdue` : `${completedCount} of ${totalCount} stores`}
-          accent={overdueCount > 0 ? 'fail' : completionRate >= 80 ? 'pass' : completionRate >= 60 ? 'risk' : 'fail'}
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>}
-        />
-        <KPITile
-          label="Open Follow-up Tasks" value={followUpCount}
-          sub="Across visible stores"
-          accent={followUpCount === 0 ? 'pass' : followUpCount < 10 ? 'risk' : 'fail'}
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /><line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" /></svg>}
-        />
-        <KPITile
-          label="Stores at Risk" value={atRiskCount}
-          sub="Score below 75%"
-          accent={atRiskCount === 0 ? 'pass' : atRiskCount <= 2 ? 'risk' : 'fail'}
-          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>}
-        />
-      </div>
 
       {/* ── Charts ── */}
       <div className="rp-charts-row">
-        {/* Left chart: default = template comparison, single-store + template = section breakdown, multi-store + template = score trend */}
+        {/* Left chart: Score Trend by Audit — data changes with filters, layout stays fixed */}
         <div className="rp-chart-card">
-          {isDefault ? (
+          {scoreTrendByAuditData.length > 0 ? (
             <>
               <div className="rp-chart-header">
-                <div className="rp-chart-title">Performance by template</div>
-                <div className="rp-chart-sub">Average score across all audits per template</div>
+                <div className="rp-chart-title">Score by Region</div>
+                <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area by audit template' : 'Latest score per store by audit template'}</div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={templateComparisonData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={scoreTrendByAuditData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
+                  <XAxis dataKey="store" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Bar dataKey="avgScore" fill="#1565c0" radius={[3, 3, 0, 0]} maxBarSize={48} />
-                </BarChart>
-              </ResponsiveContainer>
-            </>
-          ) : singleStoreMode && sectionData.length > 0 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Section breakdown</div>
-                <div className="rp-chart-sub">
-                  {selectedAuditId
-                    ? `Scores by section — ${REPORT_AUDITS.find(a => a.id === selectedAuditId)?.name}`
-                    : `Avg score by section — ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={sectionData} layout="vertical" margin={{ top: 8, right: 40, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7a85' }} />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Bar dataKey="avgScore" fill="#1565c0" radius={[0, 3, 3, 0]} maxBarSize={24} />
-                </BarChart>
-              </ResponsiveContainer>
-            </>
-          ) : !singleStoreMode && trendData.length > 1 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Score trend</div>
-                <div className="rp-chart-sub">Avg score per audit — {REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}</div>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={trendData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Bar dataKey="avgScore" fill="#1565c0" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                  <Tooltip
+                    formatter={(v) => [`${v}%`, ''] as [string, string]}
+                    contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                  {templatesToShow.map((template) => {
+                    const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+                    const colorIdx = REPORT_TEMPLATES.indexOf(template);
+                    return (
+                      <Bar key={key} dataKey={key} fill={TEMPLATE_COLORS[colorIdx % TEMPLATE_COLORS.length]} radius={[3, 3, 0, 0]} maxBarSize={18} cursor="pointer" onClick={(data: unknown) => handleBarClick(data as Record<string, string | number>, template)} />
+                    );
+                  })}
                 </BarChart>
               </ResponsiveContainer>
             </>
           ) : (
-            <div className="rp-chart-empty">Select a template to see the score trend</div>
+            <div className="rp-chart-empty">No data for the current filters</div>
           )}
         </div>
 
-        {/* Right chart: store mode = score history (filtered by template if selected), specific audit = section breakdown, otherwise = compliance rate */}
+        {/* Right chart: Trend for Templates over Time — data changes with filters, layout stays fixed */}
         <div className="rp-chart-card">
-          {singleStoreMode && !selectedAuditId ? (
+          {templateTrendData.length > 0 ? (
             <>
               <div className="rp-chart-header">
-                <div className="rp-chart-title">{role === 'store' ? 'Your score history' : 'Store score history'}</div>
-                <div className="rp-chart-sub">
-                  {selectedTemplateId
-                    ? `${focusedStore?.name ?? 'Store'} · ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`
-                    : `${focusedStore?.name ?? 'Selected store'} · all completed audits`}
-                </div>
+                <div className="rp-chart-title">Trend for Templates over Time</div>
+                <div className="rp-chart-sub">Average score per template across audit instances</div>
               </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={storeHistoryChartData.map(h => ({ name: h.chartName, score: h.result.overallScore }))} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={templateTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Line type="monotone" dataKey="score" stroke="#2e7d32" strokeWidth={2} dot={{ r: 4, fill: '#2e7d32' }} />
+                  <Tooltip
+                    formatter={(v) => [`${v}%`, ''] as [string, string]}
+                    contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
+                  />
+                  <Legend iconType="rect" wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                  {templatesToShow.map((t, i) => {
+                    const key = t.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+                    return (
+                      <Line
+                        key={key}
+                        type="monotone"
+                        dataKey={key}
+                        stroke={TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 4, fill: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length] }}
+                        activeDot={{ r: 6 }}
+                        connectNulls={true}
+                      />
+                    );
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </>
-          ) : !singleStoreMode && selectedAuditId && sectionData.length > 0 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Section breakdown</div>
-                <div className="rp-chart-sub">Average score per section across filtered stores</div>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={sectionData} layout="vertical" margin={{ top: 8, right: 40, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7a85' }} />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Avg Score'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Bar dataKey="avgScore" fill="#2e7d32" radius={[0, 3, 3, 0]} maxBarSize={24} />
-                </BarChart>
-              </ResponsiveContainer>
-            </>
-          ) : complianceRateData.length > 0 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Compliance rate</div>
-                <div className="rp-chart-sub">
-                  {selectedTemplateId
-                    ? `% of stores completed — ${REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}`
-                    : '% of stores completed — latest audit per template'}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={complianceRateData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7a85' }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v ?? 0}%`, 'Completion Rate'] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <ReferenceLine y={80} stroke="#e65100" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: '80%', position: 'right', fontSize: 10, fill: '#e65100' }} />
-                  <Bar dataKey="rate" radius={[3, 3, 0, 0]} maxBarSize={48}>
-                    {complianceRateData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.rate >= 80 ? '#2e7d32' : entry.rate >= 60 ? '#e65100' : '#b23d59'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </>
           ) : (
-            <div className="rp-chart-empty">Select a template to see section breakdown</div>
+            <div className="rp-chart-empty">No trend data for the current filters</div>
           )}
         </div>
       </div>
 
+      {/* ── Score Trend by Group — sparkline table ── */}
+      {groupTableRows.length > 0 && (
+        <div className="rp-charts-row rp-charts-row--single">
+          <div className="rp-chart-card">
+            <div className="rp-chart-header">
+              <div className="rp-chart-title">Score Trend by Group</div>
+              <div className="rp-chart-sub">Average score per area over time</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #e8ecef' }}>
+                  <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 8px 8px 0', width: '35%' }}>Region</th>
+                  <th
+                    style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 12px 8px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => handleGroupSort('latest')}
+                  >
+                    Avg Score {groupSortBy === 'latest' ? (groupSortDir === 'desc' ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                  </th>
+                  <th style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 12px 8px', width: 200 }}>Trend</th>
+                  <th
+                    style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 0 8px 12px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => handleGroupSort('change')}
+                  >
+                    Change {groupSortBy === 'change' ? (groupSortDir === 'desc' ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
+                  </th>
+                </tr>
+              </thead>
+            </table>
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  {groupTableRows.map((row, idx) => (
+                    <tr key={row.name} style={{ borderBottom: idx < groupTableRows.length - 1 ? '1px solid #f0f3f5' : 'none' }}>
+                      <td style={{ fontSize: 12, fontWeight: 600, color: '#3a4550', padding: '10px 8px 10px 0', width: '35%' }}>{row.name}</td>
+                      <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 700, fontSize: 13, color: row.latestScore !== null ? scoreColor(row.latestScore) : '#bdbdbd' }}>
+                        {row.latestScore !== null ? `${row.latestScore}%` : '—'}
+                      </td>
+                      <td style={{ padding: '6px 12px', textAlign: 'center', width: 200 }}>
+                        <LineChart width={184} height={40} data={row.sparkData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
+                          <Line type="monotone" dataKey="value" stroke={row.trendColor} strokeWidth={2} dot={{ r: 3, fill: row.trendColor, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls={true} />
+                        </LineChart>
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '10px 0 10px 12px', fontWeight: 700, fontSize: 13, color: scoreChangeColor(row.change) }}>
+                        {row.change !== null ? `${row.change > 0 ? '+' : ''}${row.change}%` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Table ── */}
 
-      {/* Default: HQ / Area Manager → area rows */}
+      {/* Default: HQ / Area Manager → store rows */}
       {showDefaultAreaTable && (
         <div className="rp-table-card">
           <div className="rp-table-header">
-            <div className="rp-table-title">
-              {role === 'hq' ? 'Performance by area — latest scores' : 'Store overview — latest scores'}
-            </div>
-            <div className="rp-table-count">
-              {role === 'hq' ? `${areaTableData.length} areas` : `${filteredStores.length} stores`}
-            </div>
+            <div className="rp-table-title">Store overview — latest scores</div>
+            <div className="rp-table-count">{filteredStores.length} stores</div>
           </div>
           <div className="rp-col-headers">
             <div className="rp-col-expand" />
-            <div className="rp-col-store">{role === 'hq' ? 'Area' : 'Store'}</div>
+            <div className="rp-col-store">Store</div>
             <div className="rp-col-auditor">Auditor</div>
             <div className="rp-col-date">Last audit</div>
-            <div className="rp-col-score">Avg score</div>
-            <div className="rp-col-status">Completed</div>
+            <div className="rp-col-score">Score</div>
+            <div className="rp-col-status">Status</div>
             <div className="rp-col-tasks">Tasks</div>
           </div>
-          {role === 'hq' ? (
-            areaTableData.map(area => (
-              <AreaRow key={area.areaId} {...area} />
-            ))
-          ) : (
-            filteredStores.map(store => {
-              const result = latestResultPerStore[store.id];
-              if (!result) return null;
-              return (
-                <StoreRow
-                  key={store.id} result={result}
-                  storeName={store.name} areaName={store.areaName}
-                />
-              );
-            })
-          )}
+          {filteredStores.map(store => {
+            const result = latestResultPerStore[store.id];
+            if (!result) return null;
+            return (
+              <StoreRow
+                key={store.id} result={result}
+                storeName={store.name} areaName={store.areaName}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Area selected → audit history for stores in that area */}
+      {showAreaHistory && (
+        <div className="rp-table-card">
+          <div className="rp-table-header">
+            <div className="rp-table-title">{visibleAreas.find(a => a.id === selectedAreaId)?.name ?? 'Area'} — audit history</div>
+            <div className="rp-table-count">{areaHistoryData.length} completed audit{areaHistoryData.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div className="rp-col-headers">
+            <div className="rp-col-expand" />
+            <div className="rp-col-store">Store / Audit</div>
+            <div className="rp-col-auditor">Auditor</div>
+            <div className="rp-col-date">Completed</div>
+            <div className="rp-col-score">Score</div>
+            <div className="rp-col-status">Status</div>
+            <div className="rp-col-tasks">Tasks</div>
+          </div>
+          {areaHistoryData.map(h => (
+            <StoreHistoryRow
+              key={`${h.result.storeId}-${h.result.auditId}`}
+              auditName={h.storeName.split(' - ')[0]}
+              templateName={h.auditName}
+              date={h.result.date}
+              score={h.result.overallScore}
+              status={h.result.status}
+              result={h.result}
+            />
+          ))}
         </div>
       )}
 
@@ -892,48 +1134,16 @@ const ReportingDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Template → specific audit selected → store results */}
-      {showTemplateTable && (
-        <div className="rp-table-card">
-          <div className="rp-table-header">
-            <div className="rp-table-title">
-              {comparisonMode && compareAuditId
-                ? `Comparing: ${primaryAudit?.name} vs ${compareAudit?.name}`
-                : primaryAudit?.name ?? 'Store Results'}
-            </div>
-            <div className="rp-table-count">{primaryResults.length} store{primaryResults.length !== 1 ? 's' : ''}</div>
-          </div>
-          <div className="rp-col-headers">
-            <div className="rp-col-expand" />
-            <div className="rp-col-store">Store / Area</div>
-            <div className="rp-col-auditor">Auditor</div>
-            <div className="rp-col-date">Completed</div>
-            <div className="rp-col-score">Score</div>
-            <div className="rp-col-status">Status</div>
-            <div className="rp-col-tasks">Tasks</div>
-          </div>
-          {[...primaryResults]
-            .sort((a, b) => b.overallScore - a.overallScore)
-            .map(result => {
-              const store = REPORT_STORES.find(s => s.id === result.storeId);
-              return (
-                <StoreRow
-                  key={result.storeId} result={result}
-                  storeName={store?.name ?? result.storeId} areaName={store?.areaName ?? ''}
-                  comparisonResult={compareResultMap[result.storeId]}
-                  primaryAuditName={primaryAudit?.name} comparisonAuditName={compareAudit?.name}
-                />
-              );
-            })}
-        </div>
-      )}
 
-      {/* Template selected but no specific audit → hint */}
-      {showTemplateHint && (
-        <div className="rp-empty rp-empty--inline">
-          <p className="rp-empty-title">Showing trend for {REPORT_TEMPLATES.find(t => t.id === selectedTemplateId)?.name}</p>
-          <p className="rp-empty-sub">Select a specific audit above to see store-level results</p>
-        </div>
+      {/* Date filter modal */}
+      {dateModalOpen && (
+        <DateFilterModal
+          initialFrom={dateFrom}
+          initialTo={dateTo}
+          initialLabel={dateLabel}
+          onApply={(from, to, label) => { setDateFrom(from); setDateTo(to); setDateLabel(label); setDateModalOpen(false); }}
+          onCancel={() => setDateModalOpen(false)}
+        />
       )}
     </div>
   );
