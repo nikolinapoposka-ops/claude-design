@@ -22,12 +22,6 @@ function scoreColor(score: number): string {
   return '#b23d59';
 }
 
-function scoreChangeColor(change: number | null): string {
-  if (change === null) return '#9aa5ae';
-  if (change > 0) return '#2e7d32';
-  if (change < 0) return '#b23d59';
-  return '#9aa5ae';
-}
 
 function statusLabel(status: string): string {
   if (status === 'done') return 'Completed';
@@ -43,6 +37,27 @@ function statusClass(status: string): string {
 
 const COMPARISON_COLORS = ['#1565c0', '#2e7d32', '#e65100'] as const;
 const TEMPLATE_COLORS = ['#26a69a', '#ffa726', '#ab47bc'] as const;
+const AREA_LINE_COLORS = ['#1565c0', '#2e7d32', '#e65100', '#ab47bc', '#00838f', '#f57c00'] as const;
+
+const LocationPinIcon: React.FC<{ color: string }> = ({ color }) => (
+  <svg viewBox="0 0 24 24" fill={color} width="11" height="11" style={{ flexShrink: 0 }}>
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+  </svg>
+);
+
+const renderGroupLegend = (props: { payload?: readonly { color?: string; value?: string }[] }) => {
+  const { payload = [] } = props;
+  return (
+    <ul style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', listStyle: 'none', padding: 0, margin: 0, justifyContent: 'center' }}>
+      {payload.map((entry, i) => (
+        <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+          <LocationPinIcon color={entry.color ?? '#888'} />
+          <span style={{ color: '#444' }}>{entry.value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 function shortAuditName(name: string): string {
   return name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
@@ -350,8 +365,6 @@ const ReportingDashboard: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [dateLabel, setDateLabel] = useState('');
   const [dateModalOpen, setDateModalOpen] = useState(false);
-  const [groupSortBy, setGroupSortBy] = useState<'latest' | 'change'>('latest');
-  const [groupSortDir, setGroupSortDir] = useState<'asc' | 'desc'>('desc');
 
   // ── Role-based scoping ──
   const visibleStores = useMemo(() => {
@@ -571,28 +584,16 @@ const ReportingDashboard: React.FC = () => {
     return { periods, rows };
   }, [role, selectedAreaId, selectedStoreIds, visibleAreas, filteredStores, allVisibleResults, selectedTemplateIds, selectedAuditIds]);
 
-  // Sparkline table rows derived from heatmapData, sortable
-  const groupTableRows = useMemo(() => {
-    const rows = heatmapData.rows.map(row => {
-      const nonNull = row.cells.filter((c): c is number => c !== null);
-      const firstScore = nonNull[0] ?? null;
-      const latestScore = nonNull[nonNull.length - 1] ?? null;
-      const change = firstScore !== null && latestScore !== null ? latestScore - firstScore : null;
-      const trendColor = scoreChangeColor(change);
-      const sparkData = row.cells.map(c => ({ value: c }));
-      return { name: row.name, latestScore, change, sparkData, trendColor };
-    });
-    return [...rows].sort((a, b) => {
-      const aVal = groupSortBy === 'latest' ? (a.latestScore ?? -999) : (a.change ?? -999);
-      const bVal = groupSortBy === 'latest' ? (b.latestScore ?? -999) : (b.change ?? -999);
-      return groupSortDir === 'desc' ? bVal - aVal : aVal - bVal;
-    });
-  }, [heatmapData, groupSortBy, groupSortDir]);
-
-  const handleGroupSort = (col: 'latest' | 'change') => {
-    if (groupSortBy === col) setGroupSortDir(d => d === 'desc' ? 'asc' : 'desc');
-    else { setGroupSortBy(col); setGroupSortDir('desc'); }
-  };
+  // Group trend line chart — derived from heatmapData to reuse deduplicated periods
+  const groupTrendData = useMemo(() =>
+    heatmapData.periods.map((period, i) => {
+      const entry: Record<string, string | number> = { name: period };
+      heatmapData.rows.forEach(row => { if (row.cells[i] !== null) entry[row.name] = row.cells[i] as number; });
+      return entry;
+    }).filter(e => Object.keys(e).some(k => k !== 'name')),
+    [heatmapData]
+  );
+  const groupTrendLines = useMemo(() => heatmapData.rows.map(r => r.name), [heatmapData]);
 
   // Template trend over time — one line per template, x-axis = deduplicated time periods
   const templateTrendData = useMemo(() => {
@@ -992,56 +993,32 @@ const ReportingDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Score Trend by Group — sparkline table ── */}
-      {groupTableRows.length > 0 && (
+      {/* ── Score Trend by Group — line chart (hidden when too many groups) ── */}
+      {groupTrendData.length > 0 && (
         <div className="rp-charts-row rp-charts-row--single">
           <div className="rp-chart-card">
             <div className="rp-chart-header">
               <div className="rp-chart-title">Score Trend by Group</div>
-              <div className="rp-chart-sub">Average score per area over time</div>
+              <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area over time' : 'Score per store over time'}</div>
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e8ecef' }}>
-                  <th style={{ textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 8px 8px 0', width: '35%' }}>Region</th>
-                  <th
-                    style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 12px 8px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => handleGroupSort('latest')}
-                  >
-                    Avg Score {groupSortBy === 'latest' ? (groupSortDir === 'desc' ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
-                  </th>
-                  <th style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 12px 8px', width: 200 }}>Trend</th>
-                  <th
-                    style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, color: '#6b7a85', padding: '4px 0 8px 12px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => handleGroupSort('change')}
-                  >
-                    Change {groupSortBy === 'change' ? (groupSortDir === 'desc' ? '▼' : '▲') : <span style={{ opacity: 0.3 }}>▼</span>}
-                  </th>
-                </tr>
-              </thead>
-            </table>
-            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <tbody>
-                  {groupTableRows.map((row, idx) => (
-                    <tr key={row.name} style={{ borderBottom: idx < groupTableRows.length - 1 ? '1px solid #f0f3f5' : 'none' }}>
-                      <td style={{ fontSize: 12, fontWeight: 600, color: '#3a4550', padding: '10px 8px 10px 0', width: '35%' }}>{row.name}</td>
-                      <td style={{ textAlign: 'right', padding: '10px 12px', fontWeight: 700, fontSize: 13, color: row.latestScore !== null ? scoreColor(row.latestScore) : '#bdbdbd' }}>
-                        {row.latestScore !== null ? `${row.latestScore}%` : '—'}
-                      </td>
-                      <td style={{ padding: '6px 12px', textAlign: 'center', width: 200 }}>
-                        <LineChart width={184} height={40} data={row.sparkData} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-                          <Line type="monotone" dataKey="value" stroke={row.trendColor} strokeWidth={2} dot={{ r: 3, fill: row.trendColor, strokeWidth: 0 }} activeDot={{ r: 4 }} connectNulls={true} />
-                        </LineChart>
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '10px 0 10px 12px', fontWeight: 700, fontSize: 13, color: scoreChangeColor(row.change) }}>
-                        {row.change !== null ? `${row.change > 0 ? '+' : ''}${row.change}%` : '—'}
-                      </td>
-                    </tr>
+            {groupTrendLines.length <= 8 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={groupTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                  <Tooltip formatter={(v) => [`${v}%`, ''] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Legend content={renderGroupLegend} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                  {groupTrendLines.map((key, i) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={AREA_LINE_COLORS[i % AREA_LINE_COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: AREA_LINE_COLORS[i % AREA_LINE_COLORS.length] }} activeDot={{ r: 5 }} connectNulls={true} />
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="rp-chart-empty" style={{ padding: '24px 0' }}>
+                Too many groups to display as a line chart ({groupTrendLines.length}). Use the table below to explore scores and trends.
+              </div>
+            )}
           </div>
         </div>
       )}
