@@ -17,7 +17,7 @@ function shortSummary(question: string): string {
   return words.slice(0, 6).join(' ') + (words.length > 6 ? '…' : '');
 }
 
-const MobileAuditView: React.FC<Props> = ({ instance, onBack, onSubmit, onComplete, storeName, completedBy }) => {
+const MobileAuditView: React.FC<Props> = ({ instance, onBack, onComplete, storeName, completedBy }) => {
   const sections = instance.sectionData ?? [];
   const [sectionIdx, setSectionIdx] = useState(0);
   const [questionIdx, setQuestionIdx] = useState(0);
