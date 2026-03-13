@@ -1,6 +1,12 @@
 import React from 'react';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onScheduleClick?: () => void;
+  onEmployeeHubClick?: () => void;
+  activeSection?: 'schedule' | 'employee-hub' | null;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, activeSection }) => {
   return (
     <nav className="navbar">
       <div className="navbar-left">
@@ -13,7 +19,7 @@ const Navbar: React.FC = () => {
         </div>
 
         <button className="nav-button">DASHBOARD</button>
-        <button className="nav-button nav-button-dropdown">
+        <button className="nav-button nav-button-dropdown" onClick={onScheduleClick}>
           SCHEDULE
           <svg className="chevron" viewBox="0 0 10 5" fill="white">
             <path d="M0 0l5 5 5-5z" />
@@ -28,6 +34,12 @@ const Navbar: React.FC = () => {
         <button className="nav-button">PEOPLE</button>
         <button className="nav-button">ANALYTICS</button>
         <button className="nav-button">FORECAST</button>
+        <button
+          className={`nav-button${activeSection === 'employee-hub' ? ' nav-button-active' : ''}`}
+          onClick={onEmployeeHubClick}
+        >
+          EMPLOYEE HUB
+        </button>
       </div>
 
       <div className="navbar-right">

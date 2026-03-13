@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { useRole, STORE_NAME, AREA_MANAGER_AUDITOR_ID } from './context/RoleContext';
+import { useRole, STORE_NAME, AREA_MANAGER_AUDITOR_ID, AREA_MANAGER_NAME } from './context/RoleContext';
 import Navbar from './components/Navbar';
 import SecondaryNav from './components/SecondaryNav';
 import MainContent from './components/MainContent';
@@ -17,9 +17,11 @@ import AuditConfigView from './components/AuditConfigView';
 import EditAudienceDatesView from './components/EditAudienceDatesView';
 import type { EditAudienceData } from './components/EditAudienceDatesView';
 import StoreSubmissionView from './components/StoreSubmissionView';
+import MobileAuditView from './components/MobileAuditView';
 import AssignAuditorsView from './components/AssignAuditorsView';
 import AssignStoresView from './components/AssignStoresView';
 import ReportingDashboard from './components/ReportingDashboard';
+import ScheduleView from './components/ScheduleView';
 import ReviewAudienceView from './components/ReviewAudienceView';
 import type { SendAuditData } from './components/ReviewAndSendContent';
 import { ToastProvider, useToast } from './components/Toast';
@@ -29,7 +31,7 @@ import type { CollectionFilter, AuditCollectionFilter } from './components/Audit
 type View = 'list' | 'create-template' | 'template-detail' | 'edit-template'
            | 'choose-template' | 'template-overview' | 'review-and-send'
            | 'assign-auditors' | 'assign-stores' | 'review-audience' | 'audit-detail' | 'audit-config'
-           | 'edit-audience-dates' | 'store-submission' | 'reporting';
+           | 'edit-audience-dates' | 'store-submission' | 'mobile-audit' | 'reporting' | 'schedule';
 
 export interface MockAuditor {
   id: string;
@@ -100,9 +102,30 @@ const SEED_AUDIT_INSTANCES: AuditInstance[] = [
     description:
       'Comprehensive fire safety compliance check including extinguishers, exits, and alarm systems. This audit ensures all stores meet regulatory requirements and maintain a safe environment for staff and customers.',
     sectionData: [
-      { title: 'Maintenance & Safety', questions: [] },
-      { title: 'Customer service', questions: [] },
-      { title: 'Branding', questions: [] },
+      {
+        title: 'Store cleanliness & presentation',
+        questions: [
+          'Is the sales floor clean and free from clutter?',
+          'Are all shelves fully stocked and faced correctly?',
+          'Are fitting rooms tidy and free of merchandise?',
+        ],
+      },
+      {
+        title: 'Visual merchandising',
+        questions: [
+          'Are window displays set up according to the current VM guide?',
+          'Are promotional materials displayed in the correct locations?',
+          'Are price tags visible and correctly placed on all items?',
+        ],
+      },
+      {
+        title: 'Health & safety',
+        questions: [
+          'Are all emergency exits clear and unobstructed?',
+          'Is the first aid kit fully stocked and accessible?',
+          'Are wet floor signs available and in good condition?',
+        ],
+      },
     ],
   },
   {
@@ -524,6 +547,15 @@ function AppContent() {
     setView('store-submission');
   };
 
+  const handleStartAudit = () => {
+    setView('mobile-audit');
+  };
+
+  const handleAuditComplete = () => {
+    setSelectedStoreStatus('completed');
+    setView('store-submission');
+  };
+
   const handleEditAudienceDates = () => {
     setView('edit-audience-dates');
   };
@@ -585,7 +617,11 @@ function AppContent() {
 
   return (
     <>
-      <Navbar />
+      <Navbar
+        onScheduleClick={() => setView('schedule')}
+        onEmployeeHubClick={() => { setView('list'); setActiveTab(0); }}
+        activeSection={view === 'schedule' ? 'schedule' : (view === 'list' || view === 'reporting') ? 'employee-hub' : null}
+      />
       {view === 'list' ? (
         <>
           <SecondaryNav
@@ -717,9 +753,26 @@ function AppContent() {
         <>
           <CreateTemplateNav onBack={() => setView(role === 'store' ? 'list' : 'audit-detail')} />
           {selectedAuditInstance && (
-            <StoreSubmissionView instance={selectedAuditInstance} storeName={selectedStoreName} storeStatus={selectedStoreStatus} />
+            <StoreSubmissionView instance={selectedAuditInstance} storeName={selectedStoreName} storeStatus={selectedStoreStatus} onStartAudit={handleStartAudit} />
           )}
         </>
+      ) : view === 'mobile-audit' ? (
+        selectedAuditInstance ? (
+          <MobileAuditView
+            instance={selectedAuditInstance}
+            onBack={() => setView('store-submission')}
+            onSubmit={() => setView('store-submission')}
+            onComplete={handleAuditComplete}
+            storeName={selectedStoreName}
+            completedBy={
+              role === 'areaManager'
+                ? { name: AREA_MANAGER_NAME, initials: 'ED' }
+                : { name: 'Store Manager', initials: 'SM' }
+            }
+          />
+        ) : null
+      ) : view === 'schedule' ? (
+        <ScheduleView />
       ) : view === 'reporting' ? (
         <>
           <SecondaryNav

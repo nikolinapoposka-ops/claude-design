@@ -84,9 +84,10 @@ interface Props {
   instance: AuditInstance;
   storeName: string;
   storeStatus: string;
+  onStartAudit: () => void;
 }
 
-const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus }) => {
+const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus, onStartAudit }) => {
   const { role } = useRole();
   const statusConfig = STATUS_CONFIG[storeStatus] ?? STATUS_CONFIG['not-started'];
   const isCompleted = storeStatus === 'completed';
@@ -348,7 +349,7 @@ const StoreSubmissionView: React.FC<Props> = ({ instance, storeName, storeStatus
       {/* Bottom bar — store recipient OR assigned auditor can start/continue */}
       {(role === 'store' || viewerIsExecutor) && (storeStatus === 'not-started' || storeStatus === 'in-progress') && (
         <div className="audit-detail-bottom-bar">
-          <button className="btn btn--filled btn--pill">
+          <button className="btn btn--filled btn--pill" onClick={onStartAudit}>
             {storeStatus === 'in-progress' ? 'Continue audit' : 'Start audit'}
           </button>
         </div>
