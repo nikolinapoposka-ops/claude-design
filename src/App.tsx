@@ -621,6 +621,7 @@ function AppContent() {
         onScheduleClick={() => setView('schedule')}
         onEmployeeHubClick={() => { setView('list'); setActiveTab(0); }}
         activeSection={view === 'schedule' ? 'schedule' : (view === 'list' || view === 'reporting') ? 'employee-hub' : null}
+        onAvaCreateTemplate={(title) => { setDraftTitle(title); setEditingDraftId(null); setView('create-template'); }}
       />
       {view === 'list' ? (
         <>
@@ -812,7 +813,68 @@ function AppContent() {
   );
 }
 
+function LoginPage({ onLogin }: { onLogin: () => void }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password) { setError('Please enter a password'); return; }
+    setLoading(true);
+    setError('');
+    setTimeout(() => {
+      setLoading(false);
+      if (password !== 'CreedRocks') { setError('Incorrect password'); return; }
+      onLogin();
+    }, 800);
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <img
+            src="https://www.figma.com/api/mcp/asset/0116bdaa-392d-4506-a2ac-96ed07982fe0"
+            alt="Quinyx Logo"
+            className="login-logo-img"
+          />
+        </div>
+        <h1 className="login-title">Sign in to Quinyx</h1>
+        <p className="login-subtitle">Store Audit Dashboard</p>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-field">
+            <label className="login-label">Password</label>
+            <input
+              className="login-input"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              autoFocus
+            />
+          </div>
+          {error && <p className="login-error">{error}</p>}
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+        <p className="login-footer">Store Audit Prototype</p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [loggedIn, setLoggedIn] = useState(() => sessionStorage.getItem('quinyx-logged-in') === 'true');
+
+  const handleLogin = () => {
+    sessionStorage.setItem('quinyx-logged-in', 'true');
+    setLoggedIn(true);
+  };
+
+  if (!loggedIn) return <LoginPage onLogin={handleLogin} />;
+
   return (
     <ToastProvider>
       <AppContent />

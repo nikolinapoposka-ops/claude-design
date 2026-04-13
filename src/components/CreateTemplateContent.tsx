@@ -565,6 +565,12 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
                     </div>
                   ))}
                 </div>
+                <div className="scoring-values-total">
+                  <span className="scoring-values-total-label">Total</span>
+                  <span className="scoring-values-total-value">
+                    {question.options.reduce((sum, o) => sum + (o.scoreValue ?? 0), 0)} pts
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -1066,11 +1072,14 @@ const CreateTemplateContent: React.FC<CreateTemplateContentProps> = ({ title, on
                     </div>
                     <div className="section-card">
                       <div className="section-header">
-                        <input
-                          className="section-title-input"
-                          value={section.title}
-                          onChange={(e) => handleSectionTitleChange(section.id, e.target.value)}
-                        />
+                        <div className="section-title-group">
+                          <label className="section-field-label">Section title</label>
+                          <input
+                            className="section-title-input"
+                            value={section.title}
+                            onChange={(e) => handleSectionTitleChange(section.id, e.target.value)}
+                          />
+                        </div>
                         <span className="section-question-count">{section.questions.length} question{section.questions.length !== 1 ? 's' : ''}</span>
                         <button className="section-icon-btn" aria-label="Duplicate section" onClick={() => handleDuplicateSection(section.id)}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">

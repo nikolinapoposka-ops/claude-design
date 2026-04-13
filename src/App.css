@@ -1,3 +1,138 @@
+/* ── Login Page ── */
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #004851 0%, #007a8c 50%, #004851 100%);
+    padding: 20px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 380px;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 40px 32px 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-logo {
+    margin-bottom: 24px;
+    width: 48px;
+    height: 48px;
+    background: #004851;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.login-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: brightness(10);
+}
+
+.login-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #1a2b3c;
+    margin-bottom: 4px;
+}
+
+.login-subtitle {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: #8fa5b2;
+    margin-bottom: 28px;
+}
+
+.login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.login-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #465d6d;
+}
+
+.login-input {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    border: 1.5px solid #d0dae0;
+    border-radius: 10px;
+    outline: none;
+    color: #1a2b3c;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login-input::placeholder {
+    color: #a0b0bc;
+}
+
+.login-input:focus {
+    border-color: #007a8c;
+    box-shadow: 0 0 0 3px rgba(0, 122, 140, 0.1);
+}
+
+.login-error {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b23d59;
+    text-align: center;
+}
+
+.login-btn {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    background: #007a8c;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 4px;
+}
+
+.login-btn:hover:not(:disabled) {
+    background: #004851;
+}
+
+.login-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.login-footer {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #a0b0bc;
+    margin-top: 20px;
+    text-align: center;
+}
+
 /* Reset and Base Styles */
 * {
     margin: 0;
@@ -90,6 +225,8 @@ body {
     justify-content: space-between;
     padding: 0 16px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 100;
 }
 
 .navbar-left,
@@ -199,6 +336,568 @@ body {
     font-weight: 800;
     line-height: 16px;
     color: var(--qui-color-secondary-main);
+}
+
+/* ── Ava AI Assistant ─────────────────────────────────── */
+.ava-nav-btn {
+    position: relative;
+}
+
+.ava-nav-btn--active {
+    background-color: var(--qui-color-primary-hover, #06666e) !important;
+    border-radius: 4px;
+}
+
+.ava-panel {
+    position: fixed;
+    top: 52px;
+    right: 16px;
+    width: 400px;
+    height: calc(100vh - 72px);
+    max-height: 640px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+    overflow: hidden;
+    animation: ava-slide-in 0.2s ease-out;
+}
+
+@keyframes ava-slide-in {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ava-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 12px;
+    flex-shrink: 0;
+}
+
+.ava-panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ava-panel-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: #1a2b3c;
+}
+
+.ava-panel-badge {
+    font-family: 'Nunito', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.08);
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+.ava-panel-close {
+    background: none;
+    border: none;
+    color: #8fa5b2;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ava-panel-close:hover {
+    background: #f0f4f6;
+    color: #465d6d;
+}
+
+.ava-panel-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Insights strip — persistent above messages */
+.ava-insights-strip {
+    flex-shrink: 0;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #e6ebef;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 45%;
+    overflow-y: auto;
+}
+
+.ava-insights-strip-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ava-insights-strip-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #8fa5b2;
+}
+
+/* Insights */
+.ava-insights {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+.ava-insight-card {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #ffffff;
+    text-align: left;
+    cursor: default;
+    transition: border-color 0.15s;
+}
+
+.ava-insight-card:hover {
+    border-color: #c0cdd6;
+}
+
+.ava-insight-card--alert {
+    border-left: 3px solid #e65100;
+}
+
+.ava-insight-card--risk {
+    border-left: 3px solid #c62828;
+}
+
+.ava-insight-card--positive {
+    border-left: 3px solid #2e7d32;
+}
+
+.ava-insight-card--task {
+    border-left: 3px solid #c07a00;
+}
+
+.ava-insight-icon {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+.ava-insight-card--alert .ava-insight-icon {
+    background: rgba(230, 81, 0, 0.08);
+    color: #e65100;
+}
+
+.ava-insight-card--risk .ava-insight-icon {
+    background: rgba(198, 40, 40, 0.08);
+    color: #c62828;
+}
+
+.ava-insight-card--positive .ava-insight-icon {
+    background: rgba(46, 125, 50, 0.08);
+    color: #2e7d32;
+}
+
+.ava-insight-card--task .ava-insight-icon {
+    background: rgba(192, 122, 0, 0.08);
+    color: #c07a00;
+}
+
+.ava-insight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.ava-insight-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a2b3c;
+    line-height: 1.3;
+}
+
+.ava-insight-desc {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #8fa5b2;
+    line-height: 1.45;
+}
+
+.ava-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.ava-suggestion-chip {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.06);
+    border: 1px solid rgba(124, 58, 237, 0.15);
+    border-radius: 20px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ava-suggestion-chip:hover {
+    background: rgba(124, 58, 237, 0.12);
+    border-color: rgba(124, 58, 237, 0.3);
+}
+
+/* Messages */
+.ava-msg {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.ava-msg--user {
+    justify-content: flex-end;
+}
+
+.ava-msg-avatar {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.ava-msg-bubble {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    max-width: 92%;
+    word-break: break-word;
+}
+
+.ava-msg-bubble--user {
+    background: #f0f2f5;
+    color: #1a2b3c;
+    border-radius: 18px 18px 4px 18px;
+    padding: 10px 16px;
+    white-space: pre-wrap;
+}
+
+.ava-msg-bubble--ava {
+    background: transparent;
+    color: #1a2b3c;
+    border-radius: 0;
+    padding: 4px 0;
+}
+
+/* Typing indicator */
+.ava-typing {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 4px;
+}
+
+.ava-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #7c3aed;
+    animation: ava-bounce 1.2s infinite;
+}
+
+.ava-dot:nth-child(2) { animation-delay: 0.15s; }
+.ava-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ava-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Input area — Claude-style */
+.ava-panel-input-area {
+    padding: 12px 16px 16px;
+    flex-shrink: 0;
+}
+
+.ava-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    background: #ffffff;
+    border: 1.5px solid #d0dae0;
+    border-radius: 20px;
+    padding: 6px 6px 6px 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ava-input-wrapper:focus-within {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.ava-panel-input {
+    flex: 1;
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 6px 0;
+    border: none;
+    outline: none;
+    color: #1a2b3c;
+    background: transparent;
+    resize: none;
+    overflow-y: auto;
+    max-height: 120px;
+}
+
+.ava-panel-input::placeholder {
+    color: #a0b0bc;
+}
+
+.ava-panel-send {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.ava-panel-send:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+
+.ava-panel-send:disabled {
+    opacity: 0.3;
+    cursor: default;
+    background: #c0cdd6;
+}
+
+.ava-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 8px 14px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.08);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.ava-action-btn:hover {
+    background: rgba(124, 58, 237, 0.14);
+    transform: translateY(-1px);
+}
+
+/* ── Ava response text ───────────────────────────── */
+.ava-msg-text {
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.6;
+}
+
+/* ── Ava response cards (insights / metrics) ─────── */
+.ava-resp-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.ava-resp-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #edf0f3;
+    background: #fafbfc;
+    transition: background 0.12s;
+}
+
+.ava-resp-card:hover {
+    background: #f3f5f7;
+}
+
+.ava-resp-card--alert  { border-left: 3px solid #e65100; }
+.ava-resp-card--risk   { border-left: 3px solid #c62828; }
+.ava-resp-card--positive { border-left: 3px solid #2e7d32; }
+.ava-resp-card--task   { border-left: 3px solid #c07a00; }
+
+.ava-resp-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ava-resp-card-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a2b3c;
+}
+
+.ava-resp-card-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 800;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.ava-resp-card-value--alert  { color: #e65100; background: rgba(230,81,0,0.08); }
+.ava-resp-card-value--risk   { color: #c62828; background: rgba(198,40,40,0.08); }
+.ava-resp-card-value--positive { color: #2e7d32; background: rgba(46,125,50,0.08); }
+.ava-resp-card-value--task   { color: #c07a00; background: rgba(192,122,0,0.08); }
+
+.ava-resp-card-desc {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #657d8c;
+    line-height: 1.45;
+}
+
+/* ── Ava template card ───────────────────────────── */
+.ava-template-card {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ava-template-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #465d6d;
+}
+
+.ava-template-card-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a2b3c;
+    flex: 1;
+}
+
+.ava-template-card-cat {
+    font-family: 'Nunito', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--qui-color-primary-main, #007a8c);
+    background: rgba(0, 122, 140, 0.08);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.ava-template-card-sections {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.ava-template-section-pill {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #465d6d;
+    background: #f3f5f7;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e6ebef;
+}
+
+/* ── Ava task card ───────────────────────────────── */
+.ava-task-card {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ava-task-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2e7d32;
+}
+
+.ava-task-card-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a2b3c;
+}
+
+.ava-task-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.ava-task-meta-pill {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #465d6d;
+    background: #f3f5f7;
+    padding: 3px 10px;
+    border-radius: 6px;
+    border: 1px solid #e6ebef;
+}
+
+.ava-task-meta-pill--high {
+    color: #c62828;
+    background: rgba(198, 40, 40, 0.06);
+    border-color: rgba(198, 40, 40, 0.15);
 }
 
 /* Main Content */
@@ -1483,9 +2182,22 @@ body {
 .section-header {
     background-color: var(--qui-color-primary-alt);
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 10px;
     padding: 12px 16px;
+}
+
+.section-title-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.section-field-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    color: var(--qui-color-surface-on-surface-alt);
 }
 
 .section-title-input {
@@ -1544,6 +2256,7 @@ body {
     background: rgba(0, 0, 0, 0.08);
 }
 
+
 .section-body {
     background: white;
     padding: 14px 18px;
@@ -1572,6 +2285,7 @@ body {
     justify-content: space-between;
     margin-bottom: 14px;
 }
+
 
 .question-number {
     font-family: 'Poppins', sans-serif;
@@ -6164,6 +6878,32 @@ body {
     padding: 12px;
 }
 
+.scoring-values-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--qui-color-surface-contrast-low, #f3f5f7);
+    border-radius: 8px;
+    border: 1px solid var(--qui-color-surface-contrast-high, #e6ebef);
+}
+
+.scoring-values-total-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--qui-color-surface-on-surface-alt, #465d6d);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.scoring-values-total-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--qui-color-surface-on-surface, #1e282f);
+}
+
 .scoring-value-cell {
     display: flex;
     flex-direction: column;
@@ -6878,6 +7618,60 @@ body {
     color: #b23d59;
 }
 
+/* ── KPI Summary Panel ── */
+.rp-kpi-panel {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.rp-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e6ebef;
+    border-radius: 12px;
+    padding: 20px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rp-kpi-card--primary {
+    background: #fafbfc;
+    border: 1.5px solid #d0dae0;
+}
+
+.rp-kpi-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: #1a2b3c;
+    line-height: 1.1;
+}
+
+.rp-kpi-total {
+    font-size: 16px;
+    font-weight: 600;
+    color: #8fa5b2;
+}
+
+.rp-kpi-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #8fa5b2;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.rp-kpi-sub {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #a0b0bc;
+    margin-top: -2px;
+}
+
 /* ── Charts Row ── */
 .rp-charts-row {
     display: grid;
@@ -7243,9 +8037,10 @@ body {
 
 .rp-col-headers {
     display: grid;
-    grid-template-columns: 28px 1fr 120px 100px 180px 110px 60px;
+    grid-template-columns: 28px 1fr 120px 100px 180px 110px 90px;
     gap: 8px;
     padding: 8px 16px;
+    align-items: center;
     background: #f7f9fb;
     border-bottom: 1px solid #e0e5ea;
     font-size: 11px;
@@ -7293,6 +8088,16 @@ body {
     color: #9aa5ad;
     transition: transform 0.2s;
     flex-shrink: 0;
+}
+
+.rp-chevron-placeholder {
+    width: 14px;
+    flex-shrink: 0;
+}
+
+.rp-store-row--no-result {
+    opacity: 0.7;
+    cursor: default;
 }
 
 .rp-chevron--open {
@@ -7441,6 +8246,21 @@ body {
 
 .rp-section-score-wrap {
     flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.rp-score-absolute {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a2b3c;
+}
+
+.rp-score-dash {
+    font-size: 11px;
+    color: #a0b0bc;
 }
 
 .rp-task-count {

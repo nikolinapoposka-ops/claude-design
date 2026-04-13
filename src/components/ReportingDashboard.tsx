@@ -16,10 +16,8 @@ function avg(nums: number[]): number {
   return Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
 
-function scoreColor(score: number): string {
-  if (score >= 85) return '#2e7d32';
-  if (score >= 70) return '#e65100';
-  return '#b23d59';
+function scoreColor(_score: number): string {
+  return '#1a2b3c';
 }
 
 
@@ -60,7 +58,31 @@ const renderGroupLegend = (props: { payload?: readonly { color?: string; value?:
 };
 
 function shortAuditName(name: string): string {
-  return name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+  return name;
+}
+
+function periodFromDate(date: string): string {
+  const d = new Date(date);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function sectionAbsolute(section: SectionResult): { earned: number; max: number } {
+  const earned = section.questions.reduce((s, q) => s + q.scoreValue, 0);
+  const max = section.questions.reduce((s, q) => s + q.maxScore, 0);
+  return { earned, max };
+}
+
+function resultAbsolute(result: StoreAuditResult): { earned: number; max: number } {
+  let earned = 0, max = 0;
+  result.sections.forEach(s => { const a = sectionAbsolute(s); earned += a.earned; max += a.max; });
+  return { earned, max };
+}
+
+function fullDate(date: string): string {
+  const d = new Date(date);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 
@@ -101,11 +123,16 @@ const ScoreBar: React.FC<{ score: number; showLabel?: boolean; color?: string }>
 const SectionAccordion: React.FC<{ section: SectionResult }> = ({ section }) => {
   const openTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus !== 'resolved').length;
   const resolvedTaskCount = section.questions.filter(q => q.followUpTask && q.followUpTaskStatus === 'resolved').length;
+  const abs = sectionAbsolute(section);
   return (
     <div className="rp-section-accordion">
       <div className="rp-section-row">
         <span className="rp-section-name">{section.name}</span>
-        <div className="rp-section-score-wrap"><span style={{ color: scoreColor(section.score), fontWeight: 600, fontSize: 13 }}>{section.score}%</span></div>
+        <div className="rp-section-score-wrap">
+          <span className="rp-score-absolute">{abs.earned}/{abs.max}</span>
+          <span className="rp-score-dash">—</span>
+          <span style={{ color: scoreColor(section.score), fontWeight: 600, fontSize: 13 }}>{section.score}%</span>
+        </div>
         {openTaskCount > 0 && <span className="rp-task-count">{openTaskCount} open</span>}
         {resolvedTaskCount > 0 && <span className="rp-task-count rp-task-count--resolved">{resolvedTaskCount} resolved</span>}
       </div>
@@ -145,8 +172,14 @@ const StoreRow: React.FC<{
                 </div>
               ))}
             </div>
+          ) : result.status === 'done' ? (
+            <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span className="rp-score-absolute">{resultAbsolute(result).earned}/{resultAbsolute(result).max}</span>
+              <span className="rp-score-dash">—</span>
+              <span style={{ color: scoreColor(result.overallScore), fontWeight: 600, fontSize: 13 }}>{result.overallScore}%</span>
+            </span>
           ) : (
-            <span style={{ color: scoreColor(result.overallScore), fontWeight: 600, fontSize: 13 }}>{result.overallScore}%</span>
+            <span className="rp-score-absolute">—</span>
           )}
         </div>
         <div className="rp-store-status">
@@ -208,7 +241,13 @@ const StoreHistoryRow: React.FC<{
         </div>
         <div className="rp-store-auditor">{result.auditor}</div>
         <div className="rp-store-date">{date || '—'}</div>
-        <div className="rp-store-score-cell"><span style={{ color: scoreColor(score), fontWeight: 600, fontSize: 13 }}>{score}%</span></div>
+        <div className="rp-store-score-cell">
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span className="rp-score-absolute">{resultAbsolute(result).earned}/{resultAbsolute(result).max}</span>
+            <span className="rp-score-dash">—</span>
+            <span style={{ color: scoreColor(score), fontWeight: 600, fontSize: 13 }}>{score}%</span>
+          </span>
+        </div>
         <div className="rp-store-status">
           <span className={`rp-status-badge ${statusClass(status)}`}>{statusLabel(status)}</span>
         </div>
@@ -364,6 +403,8 @@ const ReportingDashboard: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [dateLabel, setDateLabel] = useState('');
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedAuditors, setSelectedAuditors] = useState<string[]>([]);
   const [dateModalOpen, setDateModalOpen] = useState(false);
 
   // ── Role-based scoping ──
@@ -395,6 +436,21 @@ const ReportingDashboard: React.FC = () => {
 
   const toggleStoreId = (id: string) => {
     setSelectedStoreIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+  };
+
+  const STATUS_OPTIONS: { value: string; label: string }[] = [
+    { value: 'done', label: 'Completed' },
+    { value: 'in-progress', label: 'In Progress' },
+    { value: 'not-started', label: 'Not Started' },
+    { value: 'overdue', label: 'Overdue' },
+  ];
+
+  const toggleStatus = (s: string) => {
+    setSelectedStatuses(prev => prev.includes(s) ? prev.filter(v => v !== s) : [...prev, s]);
+  };
+
+  const toggleAuditor = (name: string) => {
+    setSelectedAuditors(prev => prev.includes(name) ? prev.filter(v => v !== name) : [...prev, name]);
   };
 
   const toggleAuditId = (id: string) => {
@@ -455,17 +511,37 @@ const ReportingDashboard: React.FC = () => {
       if (dateTo && r.date > dateTo) return false;
       if (templateAuditIds && !templateAuditIds.has(r.auditId)) return false;
       if (specificAuditIds && !specificAuditIds.has(r.auditId)) return false;
+      if (selectedAuditors.length > 0 && !selectedAuditors.includes(r.auditor)) return false;
       return true;
     });
-  }, [filteredStoreIds, dateFrom, dateTo, selectedTemplateIds, selectedAuditIds]);
+  }, [filteredStoreIds, dateFrom, dateTo, selectedTemplateIds, selectedAuditIds, selectedAuditors]);
+
+  // Available auditors — derived from all results (before auditor filter)
+  const availableAuditors = useMemo(() => {
+    const auditors = new Set(STORE_AUDIT_RESULTS.filter(r => filteredStoreIds.has(r.storeId)).map(r => r.auditor));
+    return [...auditors].sort();
+  }, [filteredStoreIds]);
 
   // Latest completed result per store
+  // Latest result per store — completed result shown first, plus any non-completed
   const latestResultPerStore = useMemo(() => {
     const map: Record<string, StoreAuditResult> = {};
     [...allVisibleResults]
       .filter(r => r.status === 'done')
       .sort((a, b) => b.date.localeCompare(a.date))
       .forEach(r => { if (!map[r.storeId]) map[r.storeId] = r; });
+    return map;
+  }, [allVisibleResults]);
+
+  // Non-completed results per store (in-progress, not-started, overdue)
+  const nonCompletedResultsPerStore = useMemo(() => {
+    const map: Record<string, StoreAuditResult[]> = {};
+    allVisibleResults
+      .filter(r => r.status !== 'done')
+      .forEach(r => {
+        if (!map[r.storeId]) map[r.storeId] = [];
+        map[r.storeId].push(r);
+      });
     return map;
   }, [allVisibleResults]);
 
@@ -521,6 +597,10 @@ const ReportingDashboard: React.FC = () => {
             .filter(r => areaStoreIds.has(r.storeId) && auditIds.has(r.auditId) && r.status === 'done');
           const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
           entry[key] = results.length ? avg(results.map(r => r.overallScore)) : 0;
+          let totalEarned = 0, totalMax = 0;
+          results.forEach(r => { const a = resultAbsolute(r); totalEarned += a.earned; totalMax += a.max; });
+          entry[`${key}_earned`] = totalEarned;
+          entry[`${key}_max`] = totalMax;
         });
         return entry;
       });
@@ -535,6 +615,11 @@ const ReportingDashboard: React.FC = () => {
           .sort((a, b) => b.date.localeCompare(a.date))[0];
         const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
         entry[key] = result?.overallScore ?? 0;
+        if (result) {
+          const a = resultAbsolute(result);
+          entry[`${key}_earned`] = a.earned;
+          entry[`${key}_max`] = a.max;
+        }
       });
       return entry;
     });
@@ -552,7 +637,7 @@ const ReportingDashboard: React.FC = () => {
     const periodOrder: string[] = [];
     const periodDates: Record<string, string> = {};
     completedAudits.forEach(a => {
-      const label = a.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+      const label = periodFromDate(a.date);
       if (!periodDates[label]) { periodOrder.push(label); periodDates[label] = a.date; }
     });
     const periods = [...periodOrder].sort((a, b) => periodDates[a].localeCompare(periodDates[b]));
@@ -563,7 +648,7 @@ const ReportingDashboard: React.FC = () => {
     const rows = groups.map(group => {
       const cells = periods.map(period => {
         const auditsForPeriod = completedAudits.filter(a => {
-          const label = a.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+          const label = periodFromDate(a.date);
           return label === period;
         });
         let results: StoreAuditResult[];
@@ -577,20 +662,30 @@ const ReportingDashboard: React.FC = () => {
             auditsForPeriod.some(a => a.id === r.auditId) && r.storeId === group.id && r.status === 'done'
           );
         }
-        return results.length ? avg(results.map(r => r.overallScore)) : null;
+        if (!results.length) return { score: null as number | null, earned: 0, max: 0 };
+        let earned = 0, max = 0;
+        results.forEach(r => { const a = resultAbsolute(r); earned += a.earned; max += a.max; });
+        return { score: avg(results.map(r => r.overallScore)), earned, max };
       });
       return { name: group.name, cells };
-    }).filter(row => row.cells.some(c => c !== null));
-    return { periods, rows };
+    }).filter(row => row.cells.some(c => c.score !== null));
+    return { periods, rows, periodDates };
   }, [role, selectedAreaId, selectedStoreIds, visibleAreas, filteredStores, allVisibleResults, selectedTemplateIds, selectedAuditIds]);
 
   // Group trend line chart — derived from heatmapData to reuse deduplicated periods
   const groupTrendData = useMemo(() =>
     heatmapData.periods.map((period, i) => {
-      const entry: Record<string, string | number> = { name: period };
-      heatmapData.rows.forEach(row => { if (row.cells[i] !== null) entry[row.name] = row.cells[i] as number; });
+      const entry: Record<string, string | number> = { name: period, fullDate: fullDate(heatmapData.periodDates[period]) };
+      heatmapData.rows.forEach(row => {
+        const cell = row.cells[i];
+        if (cell.score !== null) {
+          entry[row.name] = cell.score;
+          entry[`${row.name}_earned`] = cell.earned;
+          entry[`${row.name}_max`] = cell.max;
+        }
+      });
       return entry;
-    }).filter(e => Object.keys(e).some(k => k !== 'name')),
+    }).filter(e => Object.keys(e).some(k => k !== 'name' && k !== 'fullDate')),
     [heatmapData]
   );
   const groupTrendLines = useMemo(() => heatmapData.rows.map(r => r.name), [heatmapData]);
@@ -603,24 +698,30 @@ const ReportingDashboard: React.FC = () => {
         && (selectedAuditIds.length === 0 || selectedAuditIds.includes(a.id)))
       .sort((a, b) => a.date.localeCompare(b.date));
     // Group by period label — each unique label (e.g. "Q1 2024") becomes one x-axis point
-    const periodMap = new Map<string, { date: string; scores: Record<string, number[]> }>();
+    const periodMap = new Map<string, { date: string; scores: Record<string, number[]>; results: Record<string, StoreAuditResult[]> }>();
     completedAudits.forEach(audit => {
-      const periodLabel = audit.name.replace('Safety Audit ', '').replace('Ops Review ', '').replace('VM Audit ', '');
+      const periodLabel = periodFromDate(audit.date);
       const matchingTemplate = templatesToShow.find(t => t.id === audit.templateId);
       if (!matchingTemplate) return;
       const key = matchingTemplate.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
       const results = allVisibleResults.filter(r => r.auditId === audit.id && r.status === 'done');
       if (results.length === 0) return;
-      if (!periodMap.has(periodLabel)) periodMap.set(periodLabel, { date: audit.date, scores: {} });
+      if (!periodMap.has(periodLabel)) periodMap.set(periodLabel, { date: audit.date, scores: {}, results: {} });
       const entry = periodMap.get(periodLabel)!;
-      if (!entry.scores[key]) entry.scores[key] = [];
-      results.forEach(r => entry.scores[key].push(r.overallScore));
+      if (!entry.scores[key]) { entry.scores[key] = []; entry.results[key] = []; }
+      results.forEach(r => { entry.scores[key].push(r.overallScore); entry.results[key].push(r); });
     });
     return [...periodMap.entries()]
       .sort((a, b) => a[1].date.localeCompare(b[1].date))
-      .map(([periodLabel, { scores }]) => {
-        const entry: Record<string, string | number> = { name: periodLabel };
-        Object.entries(scores).forEach(([key, vals]) => { entry[key] = avg(vals); });
+      .map(([periodLabel, { date, scores, results: resMap }]) => {
+        const entry: Record<string, string | number> = { name: periodLabel, fullDate: fullDate(date) };
+        Object.entries(scores).forEach(([key, vals]) => {
+          entry[key] = avg(vals);
+          let earned = 0, max = 0;
+          resMap[key].forEach(r => { const a = resultAbsolute(r); earned += a.earned; max += a.max; });
+          entry[`${key}_earned`] = earned;
+          entry[`${key}_max`] = max;
+        });
         return entry;
       });
   }, [templatesToShow, allVisibleResults, selectedTemplateIds, selectedAuditIds]);
@@ -659,6 +760,18 @@ const ReportingDashboard: React.FC = () => {
     }
   };
 
+
+  // ── KPI summary ──
+  const kpiData = useMemo(() => {
+    const totalSent = allVisibleResults.length;
+    const completed = allVisibleResults.filter(r => r.status === 'done');
+    const completedCount = completed.length;
+    const completionRate = totalSent > 0 ? Math.round((completedCount / totalSent) * 100) : 0;
+    const overallScore = completed.length > 0 ? avg(completed.map(r => r.overallScore)) : 0;
+    const overdueCount = allVisibleResults.filter(r => r.isOverdue).length;
+    const storesSentTo = new Set(allVisibleResults.map(r => r.storeId)).size;
+    return { totalSent, completedCount, completionRate, overallScore, overdueCount, storesSentTo };
+  }, [allVisibleResults, filteredStores]);
 
   // ── What to render — layout never changes based on filters ──
   const showDefaultAreaTable    = !singleStoreMode && !selectedAreaId;
@@ -898,7 +1011,7 @@ const ReportingDashboard: React.FC = () => {
                         )}
                       </div>
                       <span>{shortAuditName(audit.name)}</span>
-                      <span style={{ fontSize: 11, color: '#9aa5ae', marginLeft: 4 }}>{audit.date}</span>
+                      <span style={{ fontSize: 11, color: '#9aa5ae', marginLeft: 4 }}>{fullDate(audit.date)}</span>
                     </div>
                   );
                 })}
@@ -913,8 +1026,141 @@ const ReportingDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Auditor pill */}
+        <div className="rp-filter-pill-wrap">
+          <button
+            className={`rp-filter-pill${selectedAuditors.length > 0 ? ' rp-filter-pill--active' : ''}`}
+            onClick={() => toggleFilter('auditor')}
+            type="button"
+          >
+            <span className="rp-pill-label">Auditor</span>
+            {selectedAuditors.length > 0 && (
+              <span className="rp-pill-value">
+                {selectedAuditors.length === 1
+                  ? selectedAuditors[0]
+                  : `${selectedAuditors.length} selected`}
+              </span>
+            )}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'auditor' ? ' rp-pill-chevron--open' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {selectedAuditors.length > 0 && (
+            <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setSelectedAuditors([]); }} type="button" title="Clear">×</button>
+          )}
+          {openFilter === 'auditor' && (
+            <div className="rp-pill-dropdown">
+              {availableAuditors.map(name => {
+                const isSelected = selectedAuditors.includes(name);
+                return (
+                  <div
+                    key={name}
+                    className="rp-pill-dropdown__option"
+                    onClick={() => toggleAuditor(name)}
+                  >
+                    <div
+                      className={`rp-multiselect-checkbox${isSelected ? ' rp-multiselect-checkbox--checked' : ''}`}
+                      style={isSelected ? { borderColor: '#1565c0', backgroundColor: '#1565c0' } : {}}
+                    >
+                      {isSelected && (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" width="9" height="9">
+                          <polyline points="2 6 5 9 10 3" />
+                        </svg>
+                      )}
+                    </div>
+                    <span>{name}</span>
+                  </div>
+                );
+              })}
+              {selectedAuditors.length > 0 && (
+                <div className="rp-multiselect-hint" style={{ borderTop: '1px solid #e8ecef', marginTop: 4, paddingTop: 4 }}>
+                  <button style={{ background: 'none', border: 'none', color: '#1565c0', fontSize: 12, cursor: 'pointer', padding: '2px 0' }}
+                    onClick={() => setSelectedAuditors([])}>Clear all</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Status pill */}
+        <div className="rp-filter-pill-wrap">
+          <button
+            className={`rp-filter-pill${selectedStatuses.length > 0 ? ' rp-filter-pill--active' : ''}`}
+            onClick={() => toggleFilter('status')}
+            type="button"
+          >
+            <span className="rp-pill-label">Status</span>
+            {selectedStatuses.length > 0 && (
+              <span className="rp-pill-value">
+                {selectedStatuses.length === 1
+                  ? STATUS_OPTIONS.find(s => s.value === selectedStatuses[0])?.label
+                  : `${selectedStatuses.length} selected`}
+              </span>
+            )}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12" className={`rp-pill-chevron${openFilter === 'status' ? ' rp-pill-chevron--open' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {selectedStatuses.length > 0 && (
+            <button className="rp-pill-clear" onClick={e => { e.stopPropagation(); setSelectedStatuses([]); }} type="button" title="Clear">×</button>
+          )}
+          {openFilter === 'status' && (
+            <div className="rp-pill-dropdown">
+              {STATUS_OPTIONS.map(opt => {
+                const isSelected = selectedStatuses.includes(opt.value);
+                return (
+                  <div
+                    key={opt.value}
+                    className="rp-pill-dropdown__option"
+                    onClick={() => toggleStatus(opt.value)}
+                  >
+                    <div
+                      className={`rp-multiselect-checkbox${isSelected ? ' rp-multiselect-checkbox--checked' : ''}`}
+                      style={isSelected ? { borderColor: '#1565c0', backgroundColor: '#1565c0' } : {}}
+                    >
+                      {isSelected && (
+                        <svg viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2" width="9" height="9">
+                          <polyline points="2 6 5 9 10 3" />
+                        </svg>
+                      )}
+                    </div>
+                    <span>{opt.label}</span>
+                  </div>
+                );
+              })}
+              {selectedStatuses.length > 0 && (
+                <div className="rp-multiselect-hint" style={{ borderTop: '1px solid #e8ecef', marginTop: 4, paddingTop: 4 }}>
+                  <button style={{ background: 'none', border: 'none', color: '#1565c0', fontSize: 12, cursor: 'pointer', padding: '2px 0' }}
+                    onClick={() => setSelectedStatuses([])}>Clear all</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
 
+
+      {/* ── KPI Summary Panel ── */}
+      <div className="rp-kpi-panel">
+        <div className="rp-kpi-card rp-kpi-card--primary">
+          <span className="rp-kpi-value" style={{ color: scoreColor(kpiData.overallScore) }}>{kpiData.overallScore}%</span>
+          <span className="rp-kpi-label">Overall Score</span>
+        </div>
+        <div className="rp-kpi-card">
+          <span className="rp-kpi-value">{kpiData.completedCount}<span className="rp-kpi-total">/{kpiData.totalSent}</span></span>
+          <span className="rp-kpi-label">Audits Completed</span>
+          <span className="rp-kpi-sub">across {kpiData.storesSentTo} stores</span>
+        </div>
+        <div className="rp-kpi-card">
+          <span className="rp-kpi-value">{kpiData.completionRate}%</span>
+          <span className="rp-kpi-label">Completion Rate</span>
+        </div>
+        <div className="rp-kpi-card">
+          <span className="rp-kpi-value" style={{ color: kpiData.overdueCount > 0 ? '#b23d59' : '#2e7d32' }}>{kpiData.overdueCount}</span>
+          <span className="rp-kpi-label">{kpiData.overdueCount === 1 ? 'Audit Overdue' : 'Audits Overdue'}</span>
+        </div>
+      </div>
 
       {/* ── Charts ── */}
       <div className="rp-charts-row">
@@ -932,7 +1178,12 @@ const ReportingDashboard: React.FC = () => {
                   <XAxis dataKey="store" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
                   <Tooltip
-                    formatter={(v) => [`${v}%`, ''] as [string, string]}
+                    formatter={(v, name, props) => {
+                      const earned = props?.payload?.[`${name}_earned`];
+                      const max = props?.payload?.[`${name}_max`];
+                      const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
+                      return [`${v}%${pts}`, name];
+                    }}
                     contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
@@ -965,7 +1216,13 @@ const ReportingDashboard: React.FC = () => {
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
                   <Tooltip
-                    formatter={(v) => [`${v}%`, ''] as [string, string]}
+                    formatter={(v, name, props) => {
+                      const earned = props?.payload?.[`${name}_earned`];
+                      const max = props?.payload?.[`${name}_max`];
+                      const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
+                      return [`${v}%${pts}`, name];
+                    }}
+                    labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label}
                     contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
                   />
                   <Legend iconType="rect" wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
@@ -1007,7 +1264,7 @@ const ReportingDashboard: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v) => [`${v}%`, ''] as [string, string]} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                  <Tooltip formatter={(v, name, props) => { const earned = props?.payload?.[`${name}_earned`]; const max = props?.payload?.[`${name}_max`]; const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : ''; return [`${v}%${pts}`, name]; }} labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
                   <Legend content={renderGroupLegend} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
                   {groupTrendLines.map((key, i) => (
                     <Line key={key} type="monotone" dataKey={key} stroke={AREA_LINE_COLORS[i % AREA_LINE_COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: AREA_LINE_COLORS[i % AREA_LINE_COLORS.length] }} activeDot={{ r: 5 }} connectNulls={true} />
@@ -1041,15 +1298,64 @@ const ReportingDashboard: React.FC = () => {
             <div className="rp-col-status">Status</div>
             <div className="rp-col-tasks">Tasks</div>
           </div>
-          {filteredStores.map(store => {
-            const result = latestResultPerStore[store.id];
-            if (!result) return null;
-            return (
-              <StoreRow
-                key={store.id} result={result}
-                storeName={store.name} areaName={store.areaName}
-              />
-            );
+          {filteredStores.flatMap(store => {
+            const noFilter = selectedStatuses.length === 0;
+            const effectiveStatus = (r: StoreAuditResult) => r.isOverdue ? 'overdue' : r.status;
+            const rows: React.ReactNode[] = [];
+            const completedResult = latestResultPerStore[store.id];
+            if (completedResult && (noFilter || selectedStatuses.includes(effectiveStatus(completedResult)))) {
+              rows.push(
+                <StoreRow
+                  key={store.id} result={completedResult}
+                  storeName={store.name} areaName={store.areaName}
+                />
+              );
+            }
+            const pending = nonCompletedResultsPerStore[store.id] ?? [];
+            pending.forEach(r => {
+              if (!noFilter && !selectedStatuses.includes(effectiveStatus(r))) return;
+              const audit = REPORT_AUDITS.find(a => a.id === r.auditId);
+              const auditLabel = audit ? `${audit.name}` : '';
+              rows.push(
+                <div key={`${store.id}-${r.auditId}`} className="rp-store-block">
+                  <div className="rp-store-row rp-store-row--no-result">
+                    <div className="rp-chevron-placeholder" />
+                    <div className="rp-store-info">
+                      <div className="rp-store-name">{store.name}</div>
+                      <div className="rp-store-area">{auditLabel}</div>
+                    </div>
+                    <div className="rp-store-auditor">{r.auditor}</div>
+                    <div className="rp-store-date">{r.dueDate ? fullDate(r.dueDate) : '—'}</div>
+                    <div className="rp-store-score-cell"><span className="rp-score-absolute">—</span></div>
+                    <div className="rp-store-status">
+                      <span className={`rp-status-badge ${r.isOverdue ? 'rp-status--overdue' : statusClass(r.status)}`}>
+                        {r.isOverdue ? 'Overdue' : statusLabel(r.status)}
+                      </span>
+                    </div>
+                    <div className="rp-store-tasks" />
+                  </div>
+                </div>
+              );
+            });
+            if (rows.length === 0 && noFilter) {
+              rows.push(
+                <div key={store.id} className="rp-store-block">
+                  <div className="rp-store-row rp-store-row--no-result">
+                    <div className="rp-chevron-placeholder" />
+                    <div className="rp-store-info">
+                      <div className="rp-store-name">{store.name}</div>
+                      <div className="rp-store-area">{store.areaName}</div>
+                    </div>
+                    <div className="rp-store-auditor">—</div>
+                    <div className="rp-store-date">—</div>
+                    <div className="rp-store-score-cell"><span className="rp-score-absolute">—</span></div>
+                    <div className="rp-store-status"><span className="rp-status-badge rp-status--pending">Not Started</span></div>
+                    <div className="rp-store-tasks" />
+                  </div>
+                </div>
+              );
+            }
+            return rows;
           })}
         </div>
       )}
