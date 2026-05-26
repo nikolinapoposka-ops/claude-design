@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LayoutDashboard, BookOpen, ClipboardList, Files, FormInput, ClipboardCheck, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ClipboardList, Files, FormInput, ClipboardCheck } from 'lucide-react';
 import Tabs from './Tabs';
 import CreateAuditModal from './CreateAuditModal';
 import { useRole } from '../context/RoleContext';
@@ -98,7 +98,7 @@ interface SecondaryNavProps {
   reportingActive?: boolean;
 }
 
-const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate, onNavigateToAudit, onNavigateToReporting, reportingActive }) => {
+const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReuseTemplate, onNavigateToAudit }) => {
   const { role } = useRole();
   const createToast = useToast();
   const [dropdownOpen, setDropdownOpen] = useState(false);

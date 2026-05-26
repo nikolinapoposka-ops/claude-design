@@ -11,7 +11,6 @@
     "setup": "./infra/local_setup.sh && npx google-artifactregistry-auth"
   },
   "dependencies": {
-    "@quinyx/ui": "^14.6.0",
     "agentation": "^2.2.1",
     "lucide-react": "^0.575.0",
     "react": "^18.2.0",
