@@ -7,6 +7,38 @@ interface InsightCard {
   description: string;
 }
 
+interface SwapShift {
+  date: string;
+  time: string;
+  role: string;
+  store?: string;
+}
+
+interface SwapCandidate {
+  id: string;
+  name: string;
+  give: SwapShift;
+  get: SwapShift;
+  note: string;
+  noteType: 'positive' | 'alert';
+  reply: string;
+}
+
+type AvaActionType =
+  | 'open-template'
+  | 'find-swap'
+  | 'dismiss-swap'
+  | 'pick-candidate'
+  | 'send-swap'
+  | 'edit-swap';
+
+interface AvaCta {
+  label: string;
+  action: AvaActionType;
+  variant?: 'primary' | 'secondary';
+  payload?: SwapCandidate;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'ava';
@@ -15,12 +47,19 @@ interface ChatMessage {
   cards?: InsightCard[];
   templateCard?: { title: string; sections: string[]; category: string };
   taskCard?: { title: string; priority: string; due: string; category: string };
+  swapShift?: SwapShift;
+  swapPrompt?: string;
+  swapCandidates?: SwapCandidate[];
+  swapMessageDraft?: { to: string; body: string };
+  swapConfirmation?: { to: string; reply: string; give: SwapShift; take: SwapShift };
+  ctas?: AvaCta[];
 }
 
 interface NavbarProps {
   onScheduleClick?: () => void;
   onEmployeeHubClick?: () => void;
-  activeSection?: 'schedule' | 'employee-hub' | null;
+  onAnalyticsClick?: () => void;
+  activeSection?: 'schedule' | 'employee-hub' | 'analytics' | null;
   onAvaCreateTemplate?: (title: string) => void;
 }
 
@@ -29,6 +68,44 @@ const AVA_SUGGESTIONS = [
   'Who are my top performers?',
   'Which areas need attention?',
   'Create a food safety audit template',
+  "I need to leave by 3pm Thursday for kids' pickup",
+];
+
+const SWAP_SHIFT: SwapShift = {
+  date: 'Thu Oct 30',
+  time: '17:00–22:00',
+  role: 'Checkout',
+  store: 'Store #204',
+};
+
+const SWAP_CANDIDATES: SwapCandidate[] = [
+  {
+    id: 'elena',
+    name: 'Elena M.',
+    give: SWAP_SHIFT,
+    get: { date: 'Tue Oct 28', time: '09:00–14:00', role: 'Floor' },
+    note: 'Equal hours · Both free for the swap',
+    noteType: 'positive',
+    reply: 'Usually replies in 30 min',
+  },
+  {
+    id: 'samir',
+    name: 'Samir K.',
+    give: SWAP_SHIFT,
+    get: { date: 'Sat Nov 1', time: '13:00–18:00', role: 'Checkout' },
+    note: 'Equal hours · Same role',
+    noteType: 'positive',
+    reply: 'Replies within 2 hours',
+  },
+  {
+    id: 'julia',
+    name: 'Júlia R.',
+    give: SWAP_SHIFT,
+    get: { date: 'Wed Oct 29', time: '18:00–22:00', role: 'Floor' },
+    note: '−1 hour · Different role',
+    noteType: 'alert',
+    reply: 'Joined 2 weeks ago',
+  },
 ];
 
 const AVA_INSIGHTS = [
@@ -58,7 +135,7 @@ const AVA_INSIGHTS = [
   },
 ];
 
-const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, activeSection, onAvaCreateTemplate }) => {
+const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, onAnalyticsClick, activeSection, onAvaCreateTemplate }) => {
   const [avaOpen, setAvaOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -82,12 +159,84 @@ const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, ac
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [avaOpen]);
 
+  const pushAva = (partial: Omit<ChatMessage, 'id' | 'role'>, delay = 1000) => {
+    setAvaTyping(true);
+    setTimeout(() => {
+      setMessages(prev => [...prev, { id: `ava-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, role: 'ava', ...partial }]);
+      setAvaTyping(false);
+    }, delay);
+  };
+
+  const pushUser = (text: string) => {
+    setMessages(prev => [...prev, { id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, role: 'user', text }]);
+  };
+
+  const handleAvaCta = (cta: AvaCta) => {
+    if (cta.action === 'find-swap') {
+      pushUser(cta.label);
+      pushAva({
+        text: 'Found 3 colleagues whose schedules work for a swap. Tap one to see the details.',
+        swapCandidates: SWAP_CANDIDATES,
+      }, 1300);
+    } else if (cta.action === 'dismiss-swap') {
+      pushUser(cta.label);
+      pushAva({ text: "No problem — just say the word when you'd like me to look." }, 700);
+    } else if (cta.action === 'pick-candidate' && cta.payload) {
+      const c = cta.payload;
+      const first = c.name.split(' ')[0];
+      pushUser(`Swap with ${first}`);
+      pushAva({
+        text: `Here's what I'll send ${first}:`,
+        swapMessageDraft: {
+          to: c.name,
+          body: `Hi ${first} — I need to leave by 3pm Thursday for kids' pickup. Could we swap?\n\nI'd take your ${c.get.date} ${c.get.role.toLowerCase()} shift (${c.get.time}), and you'd take my ${c.give.date} ${c.give.role.toLowerCase()} (${c.give.time}).\n\nEqual hours. Let me know!`,
+        },
+        ctas: [
+          { label: 'Send', action: 'send-swap', variant: 'primary', payload: c },
+          { label: 'Edit message', action: 'edit-swap', variant: 'secondary' },
+        ],
+      }, 1000);
+    } else if (cta.action === 'send-swap' && cta.payload) {
+      const c = cta.payload;
+      const first = c.name.split(' ')[0];
+      pushUser(cta.label);
+      pushAva({
+        text: `Sending the swap request to ${first}…`,
+        swapConfirmation: {
+          to: c.name,
+          reply: c.reply,
+          give: c.give,
+          take: c.get,
+        },
+      }, 1400);
+    } else if (cta.action === 'edit-swap') {
+      pushUser(cta.label);
+      pushAva({ text: "Sure — type your version below and I'll send it as-is when you hit return." }, 700);
+    }
+  };
+
   const simulateAvaResponse = (userText: string) => {
     setAvaTyping(true);
     const lower = userText.toLowerCase();
     const msg: ChatMessage = { id: `ava-${Date.now()}`, role: 'ava', text: '' };
 
-    if (lower.includes('top performer') || lower.includes('best performer') || lower.includes('best auditor') || lower.includes('who is the best') || lower.includes('who are my top')) {
+    if (
+      lower.includes('pick up') ||
+      lower.includes('pickup') ||
+      lower.includes("kids'") ||
+      lower.includes('kids ') ||
+      lower.includes('leave by 3') ||
+      lower.includes('leave early') ||
+      (lower.includes('swap') && (lower.includes('shift') || lower.includes('thursday')))
+    ) {
+      msg.text = "Got it — that's Thursday, Oct 30. You have one shift that ends after 3pm:";
+      msg.swapShift = SWAP_SHIFT;
+      msg.swapPrompt = "I can find someone to swap this with — they'd take your Thursday evening, and you'd take one of their shifts in return. Want me to look?";
+      msg.ctas = [
+        { label: 'Yes, find a swap', action: 'find-swap', variant: 'primary' },
+        { label: 'Not now', action: 'dismiss-swap', variant: 'secondary' },
+      ];
+    } else if (lower.includes('top performer') || lower.includes('best performer') || lower.includes('best auditor') || lower.includes('who is the best') || lower.includes('who are my top')) {
       msg.text = 'Here are your auditors ranked by performance:';
       msg.cards = [
         { type: 'positive', title: 'James Wilson — Texas', value: '93%', description: '3 stores, avg 93%. Zero overdue tasks. Highest consistency score across all auditors.' },
@@ -205,7 +354,12 @@ const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, ac
           </svg>
         </button>
         <button className="nav-button">PEOPLE</button>
-        <button className="nav-button">ANALYTICS</button>
+        <button
+          className={`nav-button${activeSection === 'analytics' ? ' nav-button-active' : ''}`}
+          onClick={onAnalyticsClick}
+        >
+          ANALYTICS
+        </button>
         <button className="nav-button">FORECAST</button>
         <button
           className={`nav-button${activeSection === 'employee-hub' ? ' nav-button-active' : ''}`}
@@ -437,6 +591,117 @@ const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, ac
                         <span className="ava-task-meta-pill">{msg.taskCard.due}</span>
                         <span className="ava-task-meta-pill">{msg.taskCard.category}</span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Swap shift card (recognition step) */}
+                  {msg.swapShift && (
+                    <div className="ava-swap-shift-card">
+                      <div className="ava-swap-shift-row">
+                        <span className="ava-swap-shift-date">{msg.swapShift.date} · {msg.swapShift.time}</span>
+                      </div>
+                      <span className="ava-swap-shift-meta">
+                        {msg.swapShift.role}{msg.swapShift.store ? ` · ${msg.swapShift.store}` : ''}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Swap follow-up prompt */}
+                  {msg.swapPrompt && (
+                    <div className="ava-msg-text ava-swap-prompt">{msg.swapPrompt}</div>
+                  )}
+
+                  {/* Swap candidates */}
+                  {msg.swapCandidates && (
+                    <div className="ava-swap-candidates">
+                      {msg.swapCandidates.map((c) => (
+                        <button
+                          key={c.id}
+                          className={`ava-swap-candidate ava-swap-candidate--${c.noteType}`}
+                          onClick={() => handleAvaCta({ label: c.name, action: 'pick-candidate', payload: c })}
+                        >
+                          <div className="ava-swap-candidate-name">
+                            <span>{c.name}</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </div>
+                          <div className="ava-swap-trade">
+                            <div className="ava-swap-trade-row">
+                              <span className="ava-swap-trade-label">You give</span>
+                              <span className="ava-swap-trade-value">{c.give.date} · {c.give.time}<br /><span className="ava-swap-trade-role">{c.give.role}</span></span>
+                            </div>
+                            <div className="ava-swap-trade-row">
+                              <span className="ava-swap-trade-label">You get</span>
+                              <span className="ava-swap-trade-value">{c.get.date} · {c.get.time}<br /><span className="ava-swap-trade-role">{c.get.role}</span></span>
+                            </div>
+                          </div>
+                          <div className="ava-swap-candidate-footer">
+                            <span className={`ava-swap-candidate-note ava-swap-candidate-note--${c.noteType}`}>{c.note}</span>
+                            <span className="ava-swap-candidate-reply">{c.reply}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Swap message draft preview */}
+                  {msg.swapMessageDraft && (
+                    <div className="ava-swap-message-card">
+                      <div className="ava-swap-message-to">To: {msg.swapMessageDraft.to}</div>
+                      <div className="ava-swap-message-body">
+                        {msg.swapMessageDraft.body.split('\n').map((line, i) => (
+                          <span key={i}>{line}{i < msg.swapMessageDraft!.body.split('\n').length - 1 && <br />}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Swap confirmation card */}
+                  {msg.swapConfirmation && (
+                    <div className="ava-swap-confirm-card">
+                      <div className="ava-swap-confirm-header">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="14" height="14">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        <span>Swap request sent</span>
+                      </div>
+                      <div className="ava-swap-confirm-leg">
+                        <span className="ava-swap-confirm-label">You'd give</span>
+                        <span className="ava-swap-confirm-value">
+                          {msg.swapConfirmation.give.date} · {msg.swapConfirmation.give.time}
+                          <br /><span className="ava-swap-trade-role">{msg.swapConfirmation.give.role}{msg.swapConfirmation.give.store ? ` · ${msg.swapConfirmation.give.store}` : ''}</span>
+                        </span>
+                      </div>
+                      <div className="ava-swap-confirm-leg">
+                        <span className="ava-swap-confirm-label">You'd take</span>
+                        <span className="ava-swap-confirm-value">
+                          {msg.swapConfirmation.take.date} · {msg.swapConfirmation.take.time}
+                          <br /><span className="ava-swap-trade-role">{msg.swapConfirmation.take.role}{msg.swapConfirmation.take.store ? ` · ${msg.swapConfirmation.take.store}` : ''}</span>
+                        </span>
+                      </div>
+                      <div className="ava-swap-confirm-footer">
+                        <span>Sent to {msg.swapConfirmation.to.split(' ')[0]} · {msg.swapConfirmation.reply.toLowerCase()}</span>
+                        <button className="ava-swap-confirm-cancel">Cancel request</button>
+                      </div>
+                      <div className="ava-swap-confirm-note">
+                        Both shifts stay as they are until {msg.swapConfirmation.to.split(' ')[0]} accepts. I'll let you know.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CTA buttons (multi-step swap flow) */}
+                  {msg.ctas && msg.ctas.length > 0 && (
+                    <div className="ava-cta-row">
+                      {msg.ctas.map((cta, i) => (
+                        <button
+                          key={i}
+                          className={`ava-cta-btn ava-cta-btn--${cta.variant ?? 'secondary'}`}
+                          onClick={() => handleAvaCta(cta)}
+                        >
+                          {cta.label}
+                        </button>
+                      ))}
                     </div>
                   )}
 
