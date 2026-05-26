@@ -406,6 +406,7 @@ const ReportingDashboard: React.FC = () => {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedAuditors, setSelectedAuditors] = useState<string[]>([]);
   const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [trendsOpen, setTrendsOpen] = useState(false);
 
   // ── Role-based scoping ──
   const visibleStores = useMemo(() => {
@@ -767,11 +768,45 @@ const ReportingDashboard: React.FC = () => {
     const completed = allVisibleResults.filter(r => r.status === 'done');
     const completedCount = completed.length;
     const completionRate = totalSent > 0 ? Math.round((completedCount / totalSent) * 100) : 0;
-    const overallScore = completed.length > 0 ? avg(completed.map(r => r.overallScore)) : 0;
+    let totalEarned = 0, totalMax = 0;
+    completed.forEach(r => { const a = resultAbsolute(r); totalEarned += a.earned; totalMax += a.max; });
+    const overallScore = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
     const overdueCount = allVisibleResults.filter(r => r.isOverdue).length;
     const storesSentTo = new Set(allVisibleResults.map(r => r.storeId)).size;
     return { totalSent, completedCount, completionRate, overallScore, overdueCount, storesSentTo };
   }, [allVisibleResults, filteredStores]);
+
+  // ── Template summary — aggregated scores + section breakdowns per template ──
+  const templateSummary = useMemo(() => {
+    const completed = allVisibleResults.filter(r => r.status === 'done');
+    return templatesToShow.map(template => {
+      const auditIds = new Set(REPORT_AUDITS.filter(a => a.templateId === template.id).map(a => a.id));
+      const results = completed.filter(r => auditIds.has(r.auditId));
+      if (!results.length) return null;
+      // Aggregate overall
+      let totalEarned = 0, totalMax = 0;
+      results.forEach(r => { const a = resultAbsolute(r); totalEarned += a.earned; totalMax += a.max; });
+      const overallPct = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
+      // Aggregate per section
+      const sectionMap: Record<string, { earned: number; max: number; scores: number[] }> = {};
+      results.forEach(r => {
+        r.sections.forEach(s => {
+          if (!sectionMap[s.name]) sectionMap[s.name] = { earned: 0, max: 0, scores: [] };
+          const abs = sectionAbsolute(s);
+          sectionMap[s.name].earned += abs.earned;
+          sectionMap[s.name].max += abs.max;
+          sectionMap[s.name].scores.push(s.score);
+        });
+      });
+      const sections = Object.entries(sectionMap).map(([name, data]) => ({
+        name,
+        earned: data.earned,
+        max: data.max,
+        pct: data.max > 0 ? Math.round((data.earned / data.max) * 100) : 0,
+      }));
+      return { template: template.name, earned: totalEarned, max: totalMax, pct: overallPct, sections, count: results.length };
+    }).filter(Boolean) as { template: string; earned: number; max: number; pct: number; sections: { name: string; earned: number; max: number; pct: number }[]; count: number }[];
+  }, [allVisibleResults, templatesToShow]);
 
   // ── What to render — layout never changes based on filters ──
   const showDefaultAreaTable    = !singleStoreMode && !selectedAreaId;
@@ -785,7 +820,7 @@ const ReportingDashboard: React.FC = () => {
       {/* ── Header ── */}
       <div className="rp-header">
         <div className="rp-header-left">
-          <h1 className="rp-title">Store Audits Reporting</h1>
+          <h1 className="rp-title">Audit Reporting</h1>
           <span className="rp-role-tag">
             {role === 'hq' ? 'HQ — All Stores' : role === 'areaManager' ? 'Area Manager — West Coast' : 'Store Manager — San Francisco'}
           </span>
@@ -1140,158 +1175,176 @@ const ReportingDashboard: React.FC = () => {
 
       </div>
 
-
-      {/* ── KPI Summary Panel ── */}
-      <div className="rp-kpi-panel">
-        <div className="rp-kpi-card rp-kpi-card--primary">
-          <span className="rp-kpi-value" style={{ color: scoreColor(kpiData.overallScore) }}>{kpiData.overallScore}%</span>
-          <span className="rp-kpi-label">Overall Score</span>
-        </div>
-        <div className="rp-kpi-card">
-          <span className="rp-kpi-value">{kpiData.completedCount}<span className="rp-kpi-total">/{kpiData.totalSent}</span></span>
-          <span className="rp-kpi-label">Audits Completed</span>
-          <span className="rp-kpi-sub">across {kpiData.storesSentTo} stores</span>
-        </div>
-        <div className="rp-kpi-card">
-          <span className="rp-kpi-value">{kpiData.completionRate}%</span>
-          <span className="rp-kpi-label">Completion Rate</span>
-        </div>
-        <div className="rp-kpi-card">
-          <span className="rp-kpi-value" style={{ color: kpiData.overdueCount > 0 ? '#b23d59' : '#2e7d32' }}>{kpiData.overdueCount}</span>
-          <span className="rp-kpi-label">{kpiData.overdueCount === 1 ? 'Audit Overdue' : 'Audits Overdue'}</span>
-        </div>
-      </div>
-
-      {/* ── Charts ── */}
-      <div className="rp-charts-row">
-        {/* Left chart: Score Trend by Audit — data changes with filters, layout stays fixed */}
-        <div className="rp-chart-card">
-          {scoreTrendByAuditData.length > 0 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Score by Region</div>
-                <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area by audit template' : 'Latest score per store by audit template'}</div>
-              </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={scoreTrendByAuditData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="store" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip
-                    formatter={(v, name, props) => {
-                      const earned = props?.payload?.[`${name}_earned`];
-                      const max = props?.payload?.[`${name}_max`];
-                      const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
-                      return [`${v}%${pts}`, name];
-                    }}
-                    contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                  {templatesToShow.map((template) => {
-                    const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
-                    const colorIdx = REPORT_TEMPLATES.indexOf(template);
-                    return (
-                      <Bar key={key} dataKey={key} fill={TEMPLATE_COLORS[colorIdx % TEMPLATE_COLORS.length]} radius={[3, 3, 0, 0]} maxBarSize={18} cursor="pointer" onClick={(data: unknown) => handleBarClick(data as Record<string, string | number>, template)} />
-                    );
-                  })}
-                </BarChart>
-              </ResponsiveContainer>
-            </>
-          ) : (
-            <div className="rp-chart-empty">No data for the current filters</div>
-          )}
-        </div>
-
-        {/* Right chart: Trend for Templates over Time — data changes with filters, layout stays fixed */}
-        <div className="rp-chart-card">
-          {templateTrendData.length > 0 ? (
-            <>
-              <div className="rp-chart-header">
-                <div className="rp-chart-title">Trend for Templates over Time</div>
-                <div className="rp-chart-sub">Average score per template across audit instances</div>
-              </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={templateTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip
-                    formatter={(v, name, props) => {
-                      const earned = props?.payload?.[`${name}_earned`];
-                      const max = props?.payload?.[`${name}_max`];
-                      const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
-                      return [`${v}%${pts}`, name];
-                    }}
-                    labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label}
-                    contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
-                  />
-                  <Legend iconType="rect" wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                  {templatesToShow.map((t, i) => {
-                    const key = t.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
-                    return (
-                      <Line
-                        key={key}
-                        type="monotone"
-                        dataKey={key}
-                        stroke={TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]}
-                        strokeWidth={2}
-                        dot={{ r: 4, fill: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length] }}
-                        activeDot={{ r: 6 }}
-                        connectNulls={true}
-                      />
-                    );
-                  })}
-                </LineChart>
-              </ResponsiveContainer>
-            </>
-          ) : (
-            <div className="rp-chart-empty">No trend data for the current filters</div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Score Trend by Group — line chart (hidden when too many groups) ── */}
-      {groupTrendData.length > 0 && (
-        <div className="rp-charts-row rp-charts-row--single">
-          <div className="rp-chart-card">
-            <div className="rp-chart-header">
-              <div className="rp-chart-title">Score Trend by Group</div>
-              <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area over time' : 'Score per store over time'}</div>
+      {/* ── Template Summary with KPIs ── */}
+      {templateSummary.length > 0 && (
+        <div className="rp-results-card">
+          <div className="rp-results-header">
+            <div className="rp-results-kpi">
+              <span className="rp-overall-score-value">{kpiData.overallScore}%</span>
+              <span className="rp-overall-score-label">Overall Score</span>
             </div>
-            {groupTrendLines.length <= 8 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={groupTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
-                  <Tooltip formatter={(v, name, props) => { const earned = props?.payload?.[`${name}_earned`]; const max = props?.payload?.[`${name}_max`]; const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : ''; return [`${v}%${pts}`, name]; }} labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
-                  <Legend content={renderGroupLegend} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
-                  {groupTrendLines.map((key, i) => (
-                    <Line key={key} type="monotone" dataKey={key} stroke={AREA_LINE_COLORS[i % AREA_LINE_COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: AREA_LINE_COLORS[i % AREA_LINE_COLORS.length] }} activeDot={{ r: 5 }} connectNulls={true} />
+            <div className="rp-results-kpi">
+              <span className="rp-results-kpi-value">{kpiData.completedCount}<span className="rp-kpi-total">/{kpiData.totalSent}</span></span>
+              <span className="rp-results-kpi-label">Audits Completed</span>
+            </div>
+            <div className="rp-results-kpi">
+              <span className="rp-results-kpi-value">{kpiData.completionRate}%</span>
+              <span className="rp-results-kpi-label">Completion Rate</span>
+            </div>
+            <div className="rp-results-kpi">
+              <span className="rp-results-kpi-value" style={{ color: kpiData.overdueCount > 0 ? '#b23d59' : '#2e7d32' }}>{kpiData.overdueCount}</span>
+              <span className="rp-results-kpi-label">{kpiData.overdueCount === 1 ? 'Audit Overdue' : 'Audits Overdue'}</span>
+            </div>
+          </div>
+          <div className="rp-template-summary">
+            {templateSummary.map(ts => (
+              <div key={ts.template} className="rp-template-summary-card">
+                <div className="rp-template-summary-header">
+                  <span className="rp-template-summary-name">{ts.template}</span>
+                  <span className="rp-template-summary-score">{ts.earned}/{ts.max} — {ts.pct}%</span>
+                  <span className="rp-template-summary-count">{ts.count} audits</span>
+                </div>
+                <div className="rp-template-summary-sections">
+                  {ts.sections.map(s => (
+                    <div key={s.name} className="rp-template-summary-section">
+                      <span className="rp-template-summary-section-name">{s.name}</span>
+                      <div className="rp-template-summary-bar">
+                        <div className="rp-template-summary-fill" style={{ width: `${s.pct}%` }} />
+                      </div>
+                      <span className="rp-template-summary-section-score">{s.earned}/{s.max} — {s.pct}%</span>
+                    </div>
                   ))}
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="rp-chart-empty" style={{ padding: '24px 0' }}>
-                Too many groups to display as a line chart ({groupTrendLines.length}). Use the table below to explore scores and trends.
+                </div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── Table ── */}
+      {/* ── Charts (collapsible) ── */}
+      <div className="rp-trends-toggle" onClick={() => setTrendsOpen(v => !v)}>
+        <svg className={`rp-trends-chevron${trendsOpen ? ' rp-trends-chevron--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+        <span className="rp-trends-toggle-label">Trend charts</span>
+      </div>
+      {trendsOpen && (
+        <>
+          <div className="rp-charts-row">
+            <div className="rp-chart-card">
+              {scoreTrendByAuditData.length > 0 ? (
+                <>
+                  <div className="rp-chart-header">
+                    <div className="rp-chart-title">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Score by Area' : 'Score by Store'}</div>
+                    <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area by audit' : 'Latest score per store by audit'}</div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={scoreTrendByAuditData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
+                      <XAxis dataKey="store" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                      <Tooltip
+                        formatter={(v, name, props) => {
+                          const earned = props?.payload?.[`${name}_earned`];
+                          const max = props?.payload?.[`${name}_max`];
+                          const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
+                          return [`${v}%${pts}`, name];
+                        }}
+                        contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                      {templatesToShow.map((template) => {
+                        const key = template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+                        const colorIdx = REPORT_TEMPLATES.indexOf(template);
+                        return (
+                          <Bar key={key} dataKey={key} fill={TEMPLATE_COLORS[colorIdx % TEMPLATE_COLORS.length]} radius={[3, 3, 0, 0]} maxBarSize={18} cursor="pointer" onClick={(data: unknown) => handleBarClick(data as Record<string, string | number>, template)} />
+                        );
+                      })}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </>
+              ) : (
+                <div className="rp-chart-empty">No data for the current filters</div>
+              )}
+            </div>
+            <div className="rp-chart-card">
+              {templateTrendData.length > 0 ? (
+                <>
+                  <div className="rp-chart-header">
+                    <div className="rp-chart-title">Trend over Time</div>
+                    <div className="rp-chart-sub">Average score per audit over time</div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={templateTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                      <Tooltip
+                        formatter={(v, name, props) => {
+                          const earned = props?.payload?.[`${name}_earned`];
+                          const max = props?.payload?.[`${name}_max`];
+                          const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : '';
+                          return [`${v}%${pts}`, name];
+                        }}
+                        labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label}
+                        contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }}
+                      />
+                      <Legend iconType="rect" wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                      {templatesToShow.map((t, i) => {
+                        const key = t.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '');
+                        return (
+                          <Line key={key} type="monotone" dataKey={key} stroke={TEMPLATE_COLORS[i % TEMPLATE_COLORS.length]} strokeWidth={2} dot={{ r: 4, fill: TEMPLATE_COLORS[i % TEMPLATE_COLORS.length] }} activeDot={{ r: 6 }} connectNulls={true} />
+                        );
+                      })}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </>
+              ) : (
+                <div className="rp-chart-empty">No trend data for the current filters</div>
+              )}
+            </div>
+          </div>
+          {groupTrendData.length > 0 && (
+            <div className="rp-charts-row rp-charts-row--single">
+              <div className="rp-chart-card">
+                <div className="rp-chart-header">
+                  <div className="rp-chart-title">Score Trend by Group</div>
+                  <div className="rp-chart-sub">{role === 'hq' && !selectedAreaId && selectedStoreIds.length === 0 ? 'Average score per area over time' : 'Score per store over time'}</div>
+                </div>
+                {groupTrendLines.length <= 8 ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={groupTrendData} margin={{ top: 8, right: 16, left: -10, bottom: 60 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e8ecef" />
+                      <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#6b7a85', angle: -45, textAnchor: 'end', dy: 4 } as object} height={72} interval={0} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#6b7a85' }} unit="%" />
+                      <Tooltip formatter={(v, name, props) => { const earned = props?.payload?.[`${name}_earned`]; const max = props?.payload?.[`${name}_max`]; const pts = earned != null && max != null ? ` — ${earned}/${max} pts` : ''; return [`${v}%${pts}`, name]; }} labelFormatter={(_label, payload) => payload?.[0]?.payload?.fullDate ?? _label} contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e0e5ea' }} />
+                      <Legend content={renderGroupLegend} wrapperStyle={{ fontSize: 11, paddingTop: 4 }} />
+                      {groupTrendLines.map((key, i) => (
+                        <Line key={key} type="monotone" dataKey={key} stroke={AREA_LINE_COLORS[i % AREA_LINE_COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: AREA_LINE_COLORS[i % AREA_LINE_COLORS.length] }} activeDot={{ r: 5 }} connectNulls={true} />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="rp-chart-empty" style={{ padding: '24px 0' }}>
+                    Too many groups to display as a line chart ({groupTrendLines.length}). Use the table below to explore scores and trends.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
-      {/* Default: HQ / Area Manager → store rows */}
+      {/* ── Store Overview Table ── */}
       {showDefaultAreaTable && (
         <div className="rp-table-card">
           <div className="rp-table-header">
-            <div className="rp-table-title">Store overview — latest scores</div>
-            <div className="rp-table-count">{filteredStores.length} stores</div>
+            <div className="rp-table-title">Overview — latest scores</div>
+            <div className="rp-table-count">{filteredStores.length} locations</div>
           </div>
           <div className="rp-col-headers">
             <div className="rp-col-expand" />
-            <div className="rp-col-store">Store</div>
+            <div className="rp-col-store">Location</div>
             <div className="rp-col-auditor">Auditor</div>
             <div className="rp-col-date">Last audit</div>
             <div className="rp-col-score">Score</div>
@@ -1359,6 +1412,8 @@ const ReportingDashboard: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* ── Drill-down Tables ── */}
 
       {/* Area selected → audit history for stores in that area */}
       {showAreaHistory && (
