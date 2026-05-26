@@ -25,10 +25,7 @@
     "noUncheckedSideEffectImports": true,
 
     /* Path aliases */
-    "baseUrl": ".",
-    "paths": {
-      "@quinyx/ui": ["src/lib/quinyx-ui.tsx"]
-    }
+    "baseUrl": "."
   },
   "include": ["src"]
 }

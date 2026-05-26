@@ -23,7 +23,14 @@ export default defineConfig({
   plugins: [react(), agentationNoop],
   resolve: {
     alias: {
-      '@quinyx/ui': path.resolve(__dirname, './src/lib/quinyx-ui.tsx'),
+      // @quinyx/ui ships with a pnpm-hoisted path for style-inject; remap to npm-installed location
+      'style-inject/dist/style-inject.es.js': path.resolve(
+        __dirname,
+        'node_modules/style-inject/dist/style-inject.es.js'
+      ),
     },
+  },
+  server: {
+    allowedHosts: true,
   },
 })

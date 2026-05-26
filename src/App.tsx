@@ -620,7 +620,8 @@ function AppContent() {
       <Navbar
         onScheduleClick={() => setView('schedule')}
         onEmployeeHubClick={() => { setView('list'); setActiveTab(0); }}
-        activeSection={view === 'schedule' ? 'schedule' : (view === 'list' || view === 'reporting') ? 'employee-hub' : null}
+        onAnalyticsClick={() => setView('reporting')}
+        activeSection={view === 'schedule' ? 'schedule' : view === 'reporting' ? 'analytics' : (view === 'list') ? 'employee-hub' : null}
         onAvaCreateTemplate={(title) => { setDraftTitle(title); setEditingDraftId(null); setView('create-template'); }}
       />
       {view === 'list' ? (
@@ -775,16 +776,7 @@ function AppContent() {
       ) : view === 'schedule' ? (
         <ScheduleView />
       ) : view === 'reporting' ? (
-        <>
-          <SecondaryNav
-            onNavigateToTemplate={handleNavigateToTemplate}
-            onReuseTemplate={handleReuseTemplate}
-            onNavigateToAudit={() => setView('list')}
-            onNavigateToReporting={() => setView('reporting')}
-            reportingActive={true}
-          />
-          <ReportingDashboard />
-        </>
+        <ReportingDashboard />
       ) : (
         <>
           <CreateTemplateNav onBack={handleBackFromReviewAndSend} />

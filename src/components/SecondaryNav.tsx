@@ -135,7 +135,7 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
           aria-label="Store navigation"
           data-test-id="tabs-secondary-nav"
           defaultSelected={5}
-          value={reportingActive ? 6 : 5}
+          value={5}
         >
           <Tabs.Button
             text="Dashboard"
@@ -172,12 +172,6 @@ const SecondaryNav: React.FC<SecondaryNavProps> = ({ onNavigateToTemplate, onReu
             data-test-id="tab-btn-audit"
             onClick={onNavigateToAudit}
             icon={<ClipboardCheck className="tab-icon" />}
-          />
-          <Tabs.Button
-            text="Report"
-            data-test-id="tab-btn-report"
-            onClick={onNavigateToReporting ?? notifyTabMissing}
-            icon={<BarChart2 className="tab-icon" />}
           />
         </Tabs>
       </div>

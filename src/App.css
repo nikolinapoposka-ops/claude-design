@@ -900,6 +900,303 @@ body {
     border-color: rgba(198, 40, 40, 0.15);
 }
 
+/* ── Ava swap flow ────────────────────────────────── */
+.ava-swap-shift-card {
+    margin-top: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #ffffff;
+    border-left: 3px solid #7c3aed;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ava-swap-shift-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ava-swap-shift-date {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a2b3c;
+}
+
+.ava-swap-shift-meta {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #657d8c;
+}
+
+.ava-swap-prompt {
+    margin-top: 8px !important;
+    margin-bottom: 0 !important;
+}
+
+.ava-swap-candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.ava-swap-candidate {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    transition: background 0.12s, transform 0.12s, border-color 0.12s;
+}
+
+.ava-swap-candidate:hover {
+    background: #fafbfc;
+    border-color: #d6dde2;
+    transform: translateY(-1px);
+}
+
+.ava-swap-candidate--positive {
+    border-left: 3px solid #2e7d32;
+}
+
+.ava-swap-candidate--alert {
+    border-left: 3px solid #e65100;
+}
+
+.ava-swap-candidate-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 800;
+    color: #1a2b3c;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.ava-swap-candidate-name svg {
+    color: #97a6b3;
+}
+
+.ava-swap-trade {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    border-top: 1px dashed #edf0f3;
+    border-bottom: 1px dashed #edf0f3;
+}
+
+.ava-swap-trade-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.ava-swap-trade-label {
+    flex: 0 0 64px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #97a6b3;
+    padding-top: 1px;
+}
+
+.ava-swap-trade-value {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a2b3c;
+    line-height: 1.4;
+}
+
+.ava-swap-trade-role {
+    font-size: 11px;
+    font-weight: 500;
+    color: #657d8c;
+}
+
+.ava-swap-candidate-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ava-swap-candidate-note {
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.ava-swap-candidate-note--positive { color: #2e7d32; }
+.ava-swap-candidate-note--alert    { color: #e65100; }
+
+.ava-swap-candidate-reply {
+    font-size: 10px;
+    color: #97a6b3;
+}
+
+.ava-swap-message-card {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #e6ebef;
+    background: #fafbfc;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ava-swap-message-to {
+    font-family: 'Nunito', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #97a6b3;
+}
+
+.ava-swap-message-body {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.55;
+    white-space: pre-line;
+}
+
+.ava-swap-confirm-card {
+    margin-top: 8px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #cfe9d4;
+    background: #f4faf5;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ava-swap-confirm-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #2e7d32;
+}
+
+.ava-swap-confirm-leg {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-family: 'Nunito', sans-serif;
+}
+
+.ava-swap-confirm-label {
+    flex: 0 0 64px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #2e7d32;
+    padding-top: 1px;
+}
+
+.ava-swap-confirm-value {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a2b3c;
+    line-height: 1.4;
+}
+
+.ava-swap-confirm-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #657d8c;
+    padding-top: 6px;
+    border-top: 1px dashed #cfe9d4;
+}
+
+.ava-swap-confirm-cancel {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: #c62828;
+    background: transparent;
+    border: 1px solid rgba(198, 40, 40, 0.2);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.ava-swap-confirm-cancel:hover {
+    background: rgba(198, 40, 40, 0.06);
+}
+
+.ava-swap-confirm-note {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    color: #2e7d32;
+    line-height: 1.45;
+}
+
+.ava-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.ava-cta-btn {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s, transform 0.12s;
+}
+
+.ava-cta-btn--primary {
+    color: #ffffff;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    border: 1px solid transparent;
+}
+
+.ava-cta-btn--primary:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+}
+
+.ava-cta-btn--secondary {
+    color: #465d6d;
+    background: #ffffff;
+    border: 1px solid #d6dde2;
+}
+
+.ava-cta-btn--secondary:hover {
+    background: #f3f5f7;
+    transform: translateY(-1px);
+}
+
 /* Main Content */
 .main-content {
     padding: 32px 48px 48px;
@@ -7186,7 +7483,7 @@ body {
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
 }
 
 /* ── Contextual info bar ── */
@@ -7622,18 +7919,21 @@ body {
 .rp-kpi-panel {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 10px;
 }
 
 .rp-kpi-card {
     background: #ffffff;
     border: 1px solid #e6ebef;
-    border-radius: 12px;
-    padding: 20px 20px 16px;
+    border-radius: 10px;
+    padding: 16px 16px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
+}
+
+.rp-kpi-panel--3col {
+    grid-template-columns: repeat(3, 1fr);
 }
 
 .rp-kpi-card--primary {
@@ -7641,9 +7941,75 @@ body {
     border: 1.5px solid #d0dae0;
 }
 
+/* ── Results Card (KPIs + Template Summary) ── */
+.rp-results-card {
+    background: #ffffff;
+    border: 1px solid #e6ebef;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.rp-results-header {
+    display: flex;
+    align-items: center;
+    padding: 18px 20px;
+    background: #fafbfc;
+    border-bottom: 1px solid #e6ebef;
+}
+
+.rp-results-header > .rp-results-kpi:first-child {
+    padding-right: 24px;
+    margin-right: 24px;
+    border-right: 1px solid #e0e5ea;
+}
+
+.rp-results-header > .rp-results-kpi:not(:first-child) {
+    flex: 1;
+}
+
+.rp-results-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rp-results-kpi-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    color: #1a2b3c;
+    line-height: 1.2;
+}
+
+.rp-results-kpi-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8fa5b2;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.rp-overall-score-value {
+    font-family: 'Nunito', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--qui-color-primary-main, #007a8c);
+    line-height: 1.1;
+}
+
+.rp-overall-score-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8fa5b2;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
 .rp-kpi-value {
     font-family: 'Nunito', sans-serif;
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
     color: #1a2b3c;
     line-height: 1.1;
@@ -7672,11 +8038,139 @@ body {
     margin-top: -2px;
 }
 
+/* ── Template Summary ── */
+.rp-template-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0;
+}
+
+.rp-template-summary-card {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #edf0f3;
+    border-radius: 0;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rp-template-summary-card:last-child {
+    border-bottom: none;
+}
+
+.rp-template-summary-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rp-template-summary-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    color: #1a2b3c;
+}
+
+.rp-template-summary-score {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a2b3c;
+    margin-left: auto;
+}
+
+.rp-template-summary-count {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8fa5b2;
+}
+
+.rp-template-summary-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rp-template-summary-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rp-template-summary-section-name {
+    font-family: 'Nunito', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #465d6d;
+    min-width: 120px;
+    flex-shrink: 0;
+}
+
+.rp-template-summary-bar {
+    flex: 1;
+    height: 6px;
+    background: #edf0f3;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rp-template-summary-fill {
+    height: 100%;
+    background: var(--qui-color-primary-main, #007a8c);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.rp-template-summary-section-score {
+    font-family: 'Nunito', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: #1a2b3c;
+    min-width: 80px;
+    text-align: right;
+}
+
+/* ── Trends Toggle ── */
+.rp-trends-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.rp-trends-toggle:hover .rp-trends-toggle-label {
+    color: #1a2b3c;
+}
+
+.rp-trends-chevron {
+    color: #8fa5b2;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.rp-trends-chevron--open {
+    transform: rotate(90deg);
+}
+
+.rp-trends-toggle-label {
+    font-family: 'Nunito', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #465d6d;
+    transition: color 0.15s;
+}
+
 /* ── Charts Row ── */
 .rp-charts-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 10px;
 }
 
 .rp-charts-row--single {
