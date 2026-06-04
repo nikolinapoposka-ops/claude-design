@@ -821,7 +821,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
     setError('');
     setTimeout(() => {
       setLoading(false);
-      if (password !== 'CreedRocks') { setError('Incorrect password'); return; }
+      if (password !== 'Thalia') { setError('Incorrect password'); return; }
       onLogin();
     }, 800);
   };
