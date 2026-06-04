@@ -61,6 +61,7 @@ interface NavbarProps {
   onAnalyticsClick?: () => void;
   activeSection?: 'schedule' | 'employee-hub' | 'analytics' | null;
   onAvaCreateTemplate?: (title: string) => void;
+  demoMode?: boolean;
 }
 
 const AVA_SUGGESTIONS = [
@@ -135,7 +136,7 @@ const AVA_INSIGHTS = [
   },
 ];
 
-const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, onAnalyticsClick, activeSection, onAvaCreateTemplate }) => {
+const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, onAnalyticsClick, activeSection, onAvaCreateTemplate, demoMode }) => {
   const [avaOpen, setAvaOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -340,33 +341,37 @@ const Navbar: React.FC<NavbarProps> = ({ onScheduleClick, onEmployeeHubClick, on
           />
         </div>
 
-        <button className="nav-button">DASHBOARD</button>
-        <button className="nav-button nav-button-dropdown" onClick={onScheduleClick}>
-          SCHEDULE
-          <svg className="chevron" viewBox="0 0 10 5" fill="white">
-            <path d="M0 0l5 5 5-5z" />
-          </svg>
-        </button>
-        <button className="nav-button nav-button-dropdown">
-          TIME
-          <svg className="chevron" viewBox="0 0 10 5" fill="white">
-            <path d="M0 0l5 5 5-5z" />
-          </svg>
-        </button>
-        <button className="nav-button">PEOPLE</button>
-        <button
-          className={`nav-button${activeSection === 'analytics' ? ' nav-button-active' : ''}`}
-          onClick={onAnalyticsClick}
-        >
-          ANALYTICS
-        </button>
-        <button className="nav-button">FORECAST</button>
-        <button
-          className={`nav-button${activeSection === 'employee-hub' ? ' nav-button-active' : ''}`}
-          onClick={onEmployeeHubClick}
-        >
-          EMPLOYEE HUB
-        </button>
+        {!demoMode && (
+          <>
+            <button className="nav-button">DASHBOARD</button>
+            <button className="nav-button nav-button-dropdown" onClick={onScheduleClick}>
+              SCHEDULE
+              <svg className="chevron" viewBox="0 0 10 5" fill="white">
+                <path d="M0 0l5 5 5-5z" />
+              </svg>
+            </button>
+            <button className="nav-button nav-button-dropdown">
+              TIME
+              <svg className="chevron" viewBox="0 0 10 5" fill="white">
+                <path d="M0 0l5 5 5-5z" />
+              </svg>
+            </button>
+            <button className="nav-button">PEOPLE</button>
+            <button
+              className={`nav-button${activeSection === 'analytics' ? ' nav-button-active' : ''}`}
+              onClick={onAnalyticsClick}
+            >
+              ANALYTICS
+            </button>
+            <button className="nav-button">FORECAST</button>
+            <button
+              className={`nav-button${activeSection === 'employee-hub' ? ' nav-button-active' : ''}`}
+              onClick={onEmployeeHubClick}
+            >
+              EMPLOYEE HUB
+            </button>
+          </>
+        )}
       </div>
 
       <div className="navbar-right">

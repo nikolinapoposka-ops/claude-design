@@ -191,13 +191,16 @@ function formatDate(date: Date): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const isDemoReporting = new URLSearchParams(window.location.search).get('demo') === 'reporting';
+
 function AppContent() {
   const createToast = useToast();
   const { role } = useRole();
-  const [view, setView] = useState<View>('list');
+  const [view, setView] = useState<View>(isDemoReporting ? 'reporting' : 'list');
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
+    if (isDemoReporting) { setView('reporting'); return; }
     setView('list');
     if (role === 'hq') {
       setActiveTab(0);
@@ -623,6 +626,7 @@ function AppContent() {
         onAnalyticsClick={() => setView('reporting')}
         activeSection={view === 'schedule' ? 'schedule' : view === 'reporting' ? 'analytics' : (view === 'list') ? 'employee-hub' : null}
         onAvaCreateTemplate={(title) => { setDraftTitle(title); setEditingDraftId(null); setView('create-template'); }}
+        demoMode={isDemoReporting}
       />
       {view === 'list' ? (
         <>
