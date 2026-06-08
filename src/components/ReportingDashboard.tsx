@@ -767,13 +767,28 @@ const ReportingDashboard: React.FC = () => {
     const totalSent = allVisibleResults.length;
     const completed = allVisibleResults.filter(r => r.status === 'done');
     const completedCount = completed.length;
-    const completionRate = totalSent > 0 ? Math.round((completedCount / totalSent) * 100) : 0;
     let totalEarned = 0, totalMax = 0;
     completed.forEach(r => { const a = resultAbsolute(r); totalEarned += a.earned; totalMax += a.max; });
     const overallScore = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
     const overdueCount = allVisibleResults.filter(r => r.isOverdue).length;
-    const storesSentTo = new Set(allVisibleResults.map(r => r.storeId)).size;
-    return { totalSent, completedCount, completionRate, overallScore, overdueCount, storesSentTo };
+    // Audited stores: unique stores with at least one completed result
+    const auditedStoreIds = new Set(completed.map(r => r.storeId));
+    const auditedStores = auditedStoreIds.size;
+    const totalStores = filteredStores.length;
+    // Tasks resolved: follow-up tasks from completed results
+    let totalTasks = 0, resolvedTasks = 0;
+    completed.forEach(r => {
+      r.sections.forEach(s => {
+        s.questions.forEach(q => {
+          if (q.followUpTask) {
+            totalTasks++;
+            if (q.followUpTaskStatus === 'resolved') resolvedTasks++;
+          }
+        });
+      });
+    });
+    const tasksResolvedPct = totalTasks > 0 ? Math.round((resolvedTasks / totalTasks) * 100) : 0;
+    return { totalSent, completedCount, overallScore, overdueCount, auditedStores, totalStores, tasksResolvedPct, resolvedTasks, totalTasks };
   }, [allVisibleResults, filteredStores]);
 
   // ── Template summary — aggregated scores + section breakdowns per template ──
@@ -1250,12 +1265,16 @@ const ReportingDashboard: React.FC = () => {
               <span className="rp-overall-score-label">Overall Score</span>
             </div>
             <div className="rp-results-kpi">
-              <span className="rp-results-kpi-value">{kpiData.completedCount}<span className="rp-kpi-total">/{kpiData.totalSent}</span></span>
-              <span className="rp-results-kpi-label">Audits Completed</span>
+              <span className="rp-results-kpi-value">{kpiData.auditedStores}<span className="rp-kpi-total">/{kpiData.totalStores}</span></span>
+              <span className="rp-results-kpi-label">Audited Stores</span>
             </div>
-            <div className="rp-results-kpi">
-              <span className="rp-results-kpi-value">{kpiData.completionRate}%</span>
-              <span className="rp-results-kpi-label">Completion Rate</span>
+            <div className="rp-results-kpi rp-results-kpi--tasks">
+              <span className="rp-results-kpi-value">{kpiData.tasksResolvedPct}%</span>
+              <span className="rp-results-kpi-label">Tasks Resolved</span>
+              <div className="rp-tasks-bar">
+                <div className="rp-tasks-bar-fill" style={{ width: `${kpiData.tasksResolvedPct}%` }} />
+              </div>
+              <span className="rp-tasks-bar-sub">{kpiData.resolvedTasks} of {kpiData.totalTasks} tasks</span>
             </div>
             <div className="rp-results-kpi">
               <span className="rp-results-kpi-value" style={{ color: kpiData.overdueCount > 0 ? '#b23d59' : '#2e7d32' }}>{kpiData.overdueCount}</span>
