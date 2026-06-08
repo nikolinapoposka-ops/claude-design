@@ -808,6 +808,51 @@ const ReportingDashboard: React.FC = () => {
     }).filter(Boolean) as { template: string; earned: number; max: number; pct: number; sections: { name: string; earned: number; max: number; pct: number }[]; count: number }[];
   }, [allVisibleResults, templatesToShow]);
 
+  // ── Flop-5: most frequently failed checkpoints across completed results ──
+  const flop5Data = useMemo(() => {
+    const failCounts: Record<string, { count: number; category: string }> = {};
+    allVisibleResults.filter(r => r.status === 'done').forEach(r => {
+      r.sections.forEach(s => {
+        s.questions.forEach(q => {
+          if (!q.isNA && q.scoreValue === 0 && q.maxScore > 0) {
+            if (!failCounts[q.text]) failCounts[q.text] = { count: 0, category: s.name };
+            failCounts[q.text].count++;
+          }
+        });
+      });
+    });
+    return Object.entries(failCounts)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 5)
+      .map(([issue, { count, category }]) => ({ issue, count, category }));
+  }, [allVisibleResults]);
+
+  // ── Critical stores: lowest-scoring locations from latest completed results ──
+  const criticalStores = useMemo(() =>
+    Object.entries(latestResultPerStore)
+      .map(([storeId, result]) => {
+        const store = REPORT_STORES.find(s => s.id === storeId);
+        return { storeId, storeName: store?.name ?? storeId, areaName: store?.areaName ?? '', score: result.overallScore };
+      })
+      .filter(s => s.score < 75)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 7),
+    [latestResultPerStore]
+  );
+
+  // ── Top stores: highest-scoring locations ──
+  const topStores = useMemo(() =>
+    Object.entries(latestResultPerStore)
+      .map(([storeId, result]) => {
+        const store = REPORT_STORES.find(s => s.id === storeId);
+        return { storeId, storeName: store?.name ?? storeId, areaName: store?.areaName ?? '', score: result.overallScore };
+      })
+      .filter(s => s.score >= 90)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3),
+    [latestResultPerStore]
+  );
+
   // ── What to render — layout never changes based on filters ──
   const showDefaultAreaTable    = !singleStoreMode && !selectedAreaId;
   const showAreaHistory         = !singleStoreMode && !!selectedAreaId;
@@ -1218,6 +1263,92 @@ const ReportingDashboard: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Insights Row: Flop-5 + Critical/Top Stores ── */}
+      {!singleStoreMode && (flop5Data.length > 0 || criticalStores.length > 0) && (
+        <div className="rp-insights-row">
+
+          {/* Flop-5 */}
+          {flop5Data.length > 0 && (
+            <div className="rp-insights-card">
+              <div className="rp-insights-header">
+                <span className="rp-insights-title">Top recurring issues</span>
+                <span className="rp-insights-sub">Most frequently failed checkpoints</span>
+              </div>
+              <div className="rp-flop-list">
+                {flop5Data.map((item, i) => (
+                  <div key={item.issue} className="rp-flop-row">
+                    <span className="rp-flop-rank">{i + 1}</span>
+                    <div className="rp-flop-body">
+                      <span className="rp-flop-issue">{item.issue}</span>
+                      <span className="rp-flop-category">{item.category}</span>
+                    </div>
+                    <div className="rp-flop-bar-wrap">
+                      <div className="rp-flop-bar">
+                        <div className="rp-flop-fill" style={{ width: `${Math.round((item.count / flop5Data[0].count) * 100)}%` }} />
+                      </div>
+                      <span className="rp-flop-count">{item.count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Critical + Top stores side panel */}
+          <div className="rp-insights-card rp-insights-card--stores">
+            {criticalStores.length > 0 && (
+              <>
+                <div className="rp-insights-header">
+                  <span className="rp-insights-title">Needs attention</span>
+                  <span className="rp-insights-sub">Locations scoring below 75%</span>
+                </div>
+                <div className="rp-store-spotlight-list">
+                  {criticalStores.map(s => (
+                    <div key={s.storeId} className="rp-store-spotlight-row">
+                      <div className="rp-store-spotlight-info">
+                        <span className="rp-store-spotlight-name">{s.storeName.split(' - ')[0]}</span>
+                        <span className="rp-store-spotlight-area">{s.areaName}</span>
+                      </div>
+                      <div className="rp-store-spotlight-score-wrap">
+                        <div className="rp-store-spotlight-bar">
+                          <div className="rp-store-spotlight-fill rp-store-spotlight-fill--critical" style={{ width: `${s.score}%` }} />
+                        </div>
+                        <span className="rp-store-spotlight-pct rp-store-spotlight-pct--critical">{s.score}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {topStores.length > 0 && (
+              <>
+                <div className="rp-insights-header" style={{ marginTop: criticalStores.length > 0 ? '20px' : 0 }}>
+                  <span className="rp-insights-title">Top performers</span>
+                  <span className="rp-insights-sub">Locations scoring 90%+</span>
+                </div>
+                <div className="rp-store-spotlight-list">
+                  {topStores.map(s => (
+                    <div key={s.storeId} className="rp-store-spotlight-row">
+                      <div className="rp-store-spotlight-info">
+                        <span className="rp-store-spotlight-name">{s.storeName.split(' - ')[0]}</span>
+                        <span className="rp-store-spotlight-area">{s.areaName}</span>
+                      </div>
+                      <div className="rp-store-spotlight-score-wrap">
+                        <div className="rp-store-spotlight-bar">
+                          <div className="rp-store-spotlight-fill rp-store-spotlight-fill--top" style={{ width: `${s.score}%` }} />
+                        </div>
+                        <span className="rp-store-spotlight-pct rp-store-spotlight-pct--top">{s.score}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
         </div>
       )}
 
