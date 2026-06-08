@@ -853,6 +853,27 @@ const ReportingDashboard: React.FC = () => {
     [latestResultPerStore]
   );
 
+  // ── Region × Template matrix ──
+  const regionTemplateSummary = useMemo(() => {
+    if (role !== 'hq' || selectedAreaId || selectedStoreIds.length > 0) return null;
+    const rows = visibleAreas.map(area => {
+      const areaStoreIds = new Set(filteredStores.filter(s => s.areaId === area.id).map(s => s.id));
+      const cols = templatesToShow.map(template => {
+        const auditIds = new Set(REPORT_AUDITS.filter(a => a.templateId === template.id).map(a => a.id));
+        const results = allVisibleResults.filter(r =>
+          areaStoreIds.has(r.storeId) && auditIds.has(r.auditId) && r.status === 'done'
+        );
+        const score = results.length ? avg(results.map(r => r.overallScore)) : null;
+        return {
+          key: template.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', ''),
+          score,
+        };
+      });
+      return { areaName: area.name, cols };
+    }).filter(row => row.cols.some(c => c.score !== null));
+    return rows.length > 0 ? { rows, colHeaders: templatesToShow.map(t => t.name.replace(' Standard', '').replace(' Audit', '').replace(' Review', '')) } : null;
+  }, [role, selectedAreaId, selectedStoreIds, visibleAreas, filteredStores, allVisibleResults, templatesToShow]);
+
   // ── What to render — layout never changes based on filters ──
   const showDefaultAreaTable    = !singleStoreMode && !selectedAreaId;
   const showAreaHistory         = !singleStoreMode && !!selectedAreaId;
@@ -1349,6 +1370,49 @@ const ReportingDashboard: React.FC = () => {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* ── Region × Template breakdown ── */}
+      {regionTemplateSummary && (
+        <div className="rp-insights-card rp-region-matrix-card">
+          <div className="rp-insights-header">
+            <span className="rp-insights-title">Score by region &amp; audit type</span>
+            <span className="rp-insights-sub">Average completed score per area</span>
+          </div>
+          <table className="rp-region-matrix">
+            <thead>
+              <tr>
+                <th className="rp-matrix-th rp-matrix-th--region" />
+                {regionTemplateSummary.colHeaders.map(h => (
+                  <th key={h} className="rp-matrix-th">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {regionTemplateSummary.rows.map(row => (
+                <tr key={row.areaName}>
+                  <td className="rp-matrix-region">{row.areaName}</td>
+                  {row.cols.map(col => {
+                    const cls = col.score === null ? 'rp-matrix-cell--empty'
+                      : col.score >= 85 ? 'rp-matrix-cell--high'
+                      : col.score >= 70 ? 'rp-matrix-cell--mid'
+                      : 'rp-matrix-cell--low';
+                    return (
+                      <td key={col.key} className={`rp-matrix-cell ${cls}`}>
+                        {col.score !== null ? `${col.score}%` : '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="rp-matrix-legend">
+            <span className="rp-matrix-legend-item rp-matrix-legend-item--high">≥ 85%</span>
+            <span className="rp-matrix-legend-item rp-matrix-legend-item--mid">70–84%</span>
+            <span className="rp-matrix-legend-item rp-matrix-legend-item--low">&lt; 70%</span>
+          </div>
         </div>
       )}
 
