@@ -414,33 +414,7 @@ function AppContent() {
   };
 
   const handleBackFromReviewAndSend = () => {
-    if (!selectedAuditInstance && selectedAuditTemplate) {
-      // Auto-save as draft, then offer an undo via toast
-      const draftId = `audit-draft-${Date.now()}`;
-      const draft: AuditInstance = {
-        id: draftId,
-        title: selectedAuditTemplate.title,
-        category: selectedAuditTemplate.category,
-        sendOutDate: '',
-        startDate: '',
-        dueDate: '',
-        status: 'draft',
-        audience: null,
-        stores: [],
-        auditors: [],
-        completedCount: 0,
-      };
-      setAuditInstances((prev) => [draft, ...prev]);
-      createToast({
-        message: 'Audit saved as draft.',
-        type: 'positive',
-        duration: 6000,
-        action: {
-          label: 'Undo',
-          onClick: () => setAuditInstances((prev) => prev.filter((a) => a.id !== draftId)),
-        },
-      });
-    } else if (selectedAuditInstance) {
+    if (selectedAuditInstance) {
       // Editing an existing draft — auto-save silently
       const updated: AuditInstance = {
         ...selectedAuditInstance,

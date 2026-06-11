@@ -73,7 +73,7 @@ const chevronIcon = (
 );
 
 export type CollectionFilter = 'library' | 'drafts' | 'archived';
-export type AuditCollectionFilter = 'overview' | 'assigned-to-me' | 'awaiting-approval' | 'done' | 'sent' | 'scheduled' | 'audit-drafts' | 'all';
+export type AuditCollectionFilter = 'overview' | 'assigned-to-me' | 'awaiting-approval' | 'done' | 'sent' | 'scheduled' | 'all';
 
 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -184,7 +184,6 @@ const auditCollectionItems: { key: AuditCollectionFilter; label: string }[] = [
   { key: 'done', label: 'Done' },
   { key: 'sent', label: 'Sent' },
   { key: 'scheduled', label: 'Scheduled' },
-  { key: 'audit-drafts', label: 'Audit drafts' },
   { key: 'all', label: 'All' },
 ];
 
@@ -341,7 +340,6 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
   const filteredAuditCards = (() => {
     const sent      = auditFilteredInstances.filter((i) => i.status === 'sent');
     const scheduled = auditFilteredInstances.filter((i) => i.status === 'scheduled');
-    const drafts    = auditFilteredInstances.filter((i) => i.status === 'draft');
     switch (auditCollectionFilter) {
       case 'overview':
         if (role === 'areaManager') return [...areaManagerOverviewAudits.map((i) => toAuditCardProps(projectForAM(i))), ...filteredSampleCards];
@@ -349,8 +347,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
         return [...sent.map(toAuditCardProps), ...filteredSampleCards];
       case 'sent':          return sent.map(toAuditCardProps);
       case 'scheduled':     return scheduled.map(toAuditCardProps);
-      case 'audit-drafts':  return drafts.map(toAuditCardProps);
-      case 'all':           return [...auditFilteredInstances.map(toAuditCardProps), ...filteredSampleCards];
+      case 'all':           return [...auditFilteredInstances.filter((i) => i.status !== 'draft').map(toAuditCardProps), ...filteredSampleCards];
       case 'assigned-to-me':
         if (role === 'areaManager') return areaManagerOverviewAudits.filter((i) => i.audience === 'auditors').map((i) => toAuditCardProps(projectForAM(i)));
         if (role === 'store')       return storeAudits.map(toAuditCardProps);
@@ -381,8 +378,7 @@ const AuditContent: React.FC<AuditContentProps> = ({ tab, onTabChange, templates
     'done':            0,
     'sent':            auditInstances.filter((i) => i.status === 'sent').length,
     'scheduled':       auditInstances.filter((i) => i.status === 'scheduled').length,
-    'audit-drafts':    auditInstances.filter((i) => i.status === 'draft').length,
-    'all':             auditInstances.length + sampleAuditCards.length,
+    'all':             auditInstances.filter((i) => i.status !== 'draft').length + sampleAuditCards.length,
   };
 
   // Counts per filter
